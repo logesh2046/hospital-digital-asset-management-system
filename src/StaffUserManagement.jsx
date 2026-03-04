@@ -33,7 +33,7 @@ export default function StaffUserManagement() {
     const fetchStaff = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5000/api/admin/staff', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -83,8 +83,8 @@ export default function StaffUserManagement() {
         try {
             const token = localStorage.getItem('token');
             const url = editMode
-                ? `http://localhost:5000/api/admin/staff/${editId}`
-                : 'http://localhost:5000/api/admin/staff';
+                ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff/${editId}`
+                : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff`;
 
             const method = editMode ? 'PUT' : 'POST';
 
@@ -464,7 +464,7 @@ export default function StaffUserManagement() {
                                                                             const token = localStorage.getItem('token');
                                                                             console.log(`Attempting to delete user ${staff._id}`);
 
-                                                                            const res = await fetch(`http://localhost:5000/api/admin/staff/${staff._id}`, {
+                                                                            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff/${staff._id}`, {
                                                                                 method: 'DELETE',
                                                                                 headers: {
                                                                                     'Authorization': `Bearer ${token}`,

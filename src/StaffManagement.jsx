@@ -30,7 +30,7 @@ export default function StaffManagement() {
     const fetchStaff = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5000/api/admin/staff', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -62,7 +62,7 @@ export default function StaffManagement() {
 
         try {
             const token = localStorage.getItem('token');
-            const url = editingId ? `http://localhost:5000/api/admin/staff/${editingId}` : 'http://localhost:5000/api/admin/staff';
+            const url = editingId ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff/${editingId}` : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff`;
             const method = editingId ? 'PUT' : 'POST';
 
             const payload = {
@@ -144,7 +144,7 @@ export default function StaffManagement() {
     const handleToggleStatus = async (id, currentStatus) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:5000/api/admin/staff/${id}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff/${id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -165,7 +165,7 @@ export default function StaffManagement() {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:5000/api/admin/staff/${id}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`

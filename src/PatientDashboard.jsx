@@ -28,7 +28,7 @@ export default function PatientDashboard() {
         e.preventDefault();
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/patients/me', {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients/me`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -61,7 +61,7 @@ export default function PatientDashboard() {
     };
 
     const openReport = (filePath, action) => {
-        const url = `http://localhost:5000/${(filePath || '').replace(/\\/g, '/').replace(/^server\//, '')}`;
+        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${(filePath || '').replace(/\\/g, '/').replace(/^server\//, '')}`;
         if (action === 'view') {
             window.open(url, '_blank');
         } else {
@@ -77,7 +77,7 @@ export default function PatientDashboard() {
 
     const handleOTPSuccess = async (tempToken, email) => {
         try {
-            const res = await fetch(`http://localhost:5000/api/reports/view/${selectedReport._id}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports/view/${selectedReport._id}`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${tempToken}`,
@@ -113,17 +113,17 @@ export default function PatientDashboard() {
                 const token = localStorage.getItem('token');
                 const headers = { 'Authorization': `Bearer ${token}` };
 
-                const profileRes = await fetch('http://localhost:5000/api/patients/me', { headers });
+                const profileRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients/me`, { headers });
                 if (profileRes.ok) {
                     const profileData = await profileRes.json();
                     setPatientData(profileData);
 
                     if (profileData && profileData._id) {
                         const patId = profileData._id;
-                        const reportsRes = await fetch(`http://localhost:5000/api/reports/${patId}`, { headers });
+                        const reportsRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports/${patId}`, { headers });
                         if (reportsRes.ok) setReports(await reportsRes.json());
 
-                        const presRes = await fetch(`http://localhost:5000/api/prescriptions/patient/${patId}`, { headers });
+                        const presRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/prescriptions/patient/${patId}`, { headers });
                         if (presRes.ok) setPrescriptions(await presRes.json());
                     }
                 }
@@ -683,7 +683,7 @@ export default function PatientDashboard() {
                                         Attached File
                                     </h3>
                                     <div className="flex flex-col gap-3">
-                                        <a href={`http://localhost:5000/${selectedPrescription.filePath.replace(/\\/g, '/').replace(/^server\//, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-[#0065a3]/30 transition-colors group w-fit">
+                                        <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${selectedPrescription.filePath.replace(/\\/g, '/').replace(/^server\//, '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:border-[#0065a3]/30 transition-colors group w-fit">
                                             <div className="bg-white p-2 rounded-md shadow-sm border border-gray-200 text-[#0065a3] group-hover:bg-[#0065a3] group-hover:text-white group-hover:border-[#0065a3] transition-colors">
                                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                             </div>

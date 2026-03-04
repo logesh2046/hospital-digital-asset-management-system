@@ -34,14 +34,14 @@ export default function TechnicianDashboard() {
                 const headers = { 'Authorization': `Bearer ${token}` };
 
                 // Fetch Patients
-                const patientsRes = await fetch('http://localhost:5000/api/patients', { headers });
+                const patientsRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients`, { headers });
                 if (patientsRes.ok) {
                     const patientsData = await patientsRes.json();
                     setPatients(patientsData);
                 }
 
                 // Fetch Reports
-                const reportsRes = await fetch('http://localhost:5000/api/reports', { headers });
+                const reportsRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports`, { headers });
                 if (reportsRes.ok) {
                     const reportsData = await reportsRes.json();
                     setReports(reportsData);
@@ -101,7 +101,7 @@ export default function TechnicianDashboard() {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5000/api/reports/upload', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports/upload`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -118,7 +118,7 @@ export default function TechnicianDashboard() {
                 if (fileInputRef.current) fileInputRef.current.value = '';
 
                 // Refresh reports
-                const reportsRes = await fetch('http://localhost:5000/api/reports', { headers: { 'Authorization': `Bearer ${token}` } });
+                const reportsRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports`, { headers: { 'Authorization': `Bearer ${token}` } });
                 const newReports = await reportsRes.json();
                 setReports(newReports);
             } else {

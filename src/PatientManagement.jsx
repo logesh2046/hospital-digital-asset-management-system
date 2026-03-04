@@ -42,7 +42,7 @@ export default function PatientManagement() {
     const fetchPatients = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5000/api/patients', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -78,7 +78,7 @@ export default function PatientManagement() {
         try {
             const token = localStorage.getItem('token');
 
-            const url = editId ? `http://localhost:5000/api/patients/${editId}` : 'http://localhost:5000/api/patients';
+            const url = editId ? `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients/${editId}` : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients`;
             const method = editId ? 'PUT' : 'POST';
 
             const response = await fetch(url, {
@@ -154,7 +154,7 @@ export default function PatientManagement() {
         if (!window.confirm('Are you sure you want to delete this patient?')) return;
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:5000/api/patients/${id}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients/${id}`, {
                 method: 'DELETE',
                 headers: {
                     'Authorization': `Bearer ${token}`

@@ -17,7 +17,7 @@ export default function ActivityLogs() {
     const fetchActivityLogs = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/admin/staff-stats', {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff-stats`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();

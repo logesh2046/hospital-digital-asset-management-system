@@ -19,7 +19,7 @@ export default function PublicSharedReport() {
         setLoading(true);
 
         try {
-            const res = await fetch('http://localhost:5000/api/otp/send', {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/otp/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reportId, email: emailInput })
@@ -48,7 +48,7 @@ export default function PublicSharedReport() {
         setLoading(true);
 
         try {
-            const res = await fetch('http://localhost:5000/api/otp/verify', {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/otp/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reportId, email: emailInput, otp: otpInput })
@@ -71,7 +71,7 @@ export default function PublicSharedReport() {
 
     const fetchReportWithToken = async (tempToken) => {
         try {
-            const res = await fetch(`http://localhost:5000/api/reports/view/${reportId}`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports/view/${reportId}`, {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${tempToken}`
@@ -90,7 +90,7 @@ export default function PublicSharedReport() {
                     if (!formattedPath.startsWith('/')) {
                         formattedPath = '/' + formattedPath;
                     }
-                    fullUrl = `http://localhost:5000${formattedPath}`;
+                    fullUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${formattedPath}`;
                 }
 
                 // Instantly redirect directly to the PDF in the current tab natively

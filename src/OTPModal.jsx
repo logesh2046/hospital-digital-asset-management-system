@@ -20,7 +20,7 @@ export default function OTPModal({ reportId, onClose, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const res = await fetch('http://localhost:5000/api/otp/send', {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/otp/send`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reportId, email: emailInput })
@@ -82,7 +82,7 @@ export default function OTPModal({ reportId, onClose, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const res = await fetch('http://localhost:5000/api/otp/verify', {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/otp/verify`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ reportId, email: emailInput, otp: otpString })

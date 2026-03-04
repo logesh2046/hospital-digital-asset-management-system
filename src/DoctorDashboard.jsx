@@ -68,7 +68,7 @@ export default function DoctorDashboard() {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5000/api/prescriptions', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/prescriptions`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -106,13 +106,13 @@ export default function DoctorDashboard() {
                 const headers = { 'Authorization': `Bearer ${token}` };
 
                 if (activeView === 'patients') {
-                    const response = await fetch('http://localhost:5000/api/patients', { headers });
+                    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients`, { headers });
                     if (response.ok) {
                         const data = await response.json();
                         setPatients(data);
                     }
                 } else if (activeView === 'reports') {
-                    const response = await fetch('http://localhost:5000/api/reports', { headers });
+                    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports`, { headers });
                     if (response.ok) {
                         const data = await response.json();
                         setReports(data);
@@ -341,7 +341,7 @@ export default function DoctorDashboard() {
                                                         </td>
                                                         <td className="py-4 px-4 text-xs text-gray-500">{new Date(report.createdAt).toLocaleDateString()}</td>
                                                         <td className="py-4 px-6 text-right">
-                                                            <a href={`http://localhost:5000/${(report.filePath || '').replace(/\\/g, '/').replace(/^server\//, '')}`} target="_blank" rel="noopener noreferrer" className="text-[#0065a3] hover:underline text-xs font-semibold">
+                                                            <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${(report.filePath || '').replace(/\\/g, '/').replace(/^server\//, '')}`} target="_blank" rel="noopener noreferrer" className="text-[#0065a3] hover:underline text-xs font-semibold">
                                                                 View
                                                             </a>
                                                         </td>

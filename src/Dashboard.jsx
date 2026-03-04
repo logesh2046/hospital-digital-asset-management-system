@@ -27,11 +27,11 @@ export default function Dashboard() {
             const headers = { 'Authorization': `Bearer ${token}` };
 
             // Fetch General Stats
-            const statsRes = await fetch('http://localhost:5000/api/admin/stats', { headers });
+            const statsRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/stats`, { headers });
             const statsData = await statsRes.json();
 
             // Fetch Staff Stats & Activity Logs
-            const staffRes = await fetch('http://localhost:5000/api/admin/staff-stats', { headers });
+            const staffRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff-stats`, { headers });
             const staffData = await staffRes.json();
 
             if (statsRes.ok && staffRes.ok) {

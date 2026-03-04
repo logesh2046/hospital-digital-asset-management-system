@@ -26,7 +26,7 @@ export default function StorageAnalytics() {
     const fetchStorageAnalytics = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('http://localhost:5000/api/admin/storage', {
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/storage`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await res.json();
