@@ -1,0 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+:root {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background-color: #f8fafc;
+  /* Slate-50 equivalent */
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* Utility class for monospace data (file sizes, dates, technical info) */
+.font-mono {
+  font-family: 'IBM Plex Mono', monospace;
+}
