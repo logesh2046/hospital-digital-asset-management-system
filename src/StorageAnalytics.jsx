@@ -10,7 +10,9 @@ export default function StorageAnalytics() {
         total: '0 GB',
         used: '0 GB',
         available: '0 GB',
-        percentage: 0
+        percentage: 0,
+        totalFiles: 0,
+        avgMonthlyGrowth: 0
     });
     const [storageByType, setStorageByType] = useState([]);
     const [storageByDepartment, setStorageByDepartment] = useState([]);
@@ -32,7 +34,7 @@ export default function StorageAnalytics() {
             const data = await res.json();
 
             if (res.ok) {
-                setStorageOverview(data.storageOverview || { total: '0 GB', used: '0 GB', available: '0 GB', percentage: 0 });
+                setStorageOverview(data.storageOverview || { total: '0 GB', used: '0 GB', available: '0 GB', percentage: 0, totalFiles: 0, avgMonthlyGrowth: 0 });
                 setStorageByType(data.storageByType || []);
                 setStorageByDepartment(data.storageByDepartment || []);
                 setMonthlyGrowth(data.monthlyGrowth || []);
@@ -163,10 +165,7 @@ export default function StorageAnalytics() {
                             <h3 className="text-3xl font-bold text-green-600 font-mono">{storageOverview.available}</h3>
                             <p className="text-xs text-gray-400 mt-1">{100 - storageOverview.percentage}% free</p>
                         </div>
-                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Total Files</p>
-                            <h3 className="text-3xl font-bold text-slate-800 font-mono">46,480</h3>
-                        </div>
+
                     </div>
 
                     {/* Storage Capacity Gauge */}
@@ -259,7 +258,7 @@ export default function StorageAnalytics() {
                         <div className="mt-6 pt-6 border-t border-gray-100">
                             <div className="flex justify-between items-center">
                                 <span className="text-sm font-semibold text-slate-700">Avg. Monthly Growth</span>
-                                <span className="text-lg font-bold text-[#0065a3] font-mono">+41 GB/month</span>
+                                <span className="text-lg font-bold text-[#0065a3] font-mono">+{storageOverview.avgMonthlyGrowth || 0} GB/month</span>
                             </div>
                         </div>
                     </div>

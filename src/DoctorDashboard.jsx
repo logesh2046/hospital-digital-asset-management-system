@@ -11,6 +11,35 @@ export default function DoctorDashboard() {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(false);
 
+    // Availability State
+    const [isAvailable, setIsAvailable] = useState(user?.isAvailable !== false);
+
+    const toggleAvailability = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const newStatus = !isAvailable;
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/availability`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ isAvailable: newStatus })
+            });
+
+            if (response.ok) {
+                setIsAvailable(newStatus);
+                const storedUser = JSON.parse(localStorage.getItem('user'));
+                if (storedUser) {
+                    storedUser.isAvailable = newStatus;
+                    localStorage.setItem('user', JSON.stringify(storedUser));
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling availability:', error);
+        }
+    };
+
     // Quick Prescribe State
     const [prescribeForm, setPrescribeForm] = useState({
         patientId: '',
@@ -105,13 +134,15 @@ export default function DoctorDashboard() {
                 const token = localStorage.getItem('token');
                 const headers = { 'Authorization': `Bearer ${token}` };
 
-                if (activeView === 'patients') {
+                if (activeView === 'overview' || activeView === 'patients' || activeView === 'completed') {
                     const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients`, { headers });
                     if (response.ok) {
                         const data = await response.json();
                         setPatients(data);
                     }
-                } else if (activeView === 'reports') {
+                }
+
+                if (activeView === 'reports' || activeView === 'completed_reports') {
                     const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports`, { headers });
                     if (response.ok) {
                         const data = await response.json();
@@ -128,19 +159,82 @@ export default function DoctorDashboard() {
         fetchData();
     }, [activeView]);
 
-    const filteredPatients = patients.filter(p =>
+    const baseFilteredPatients = patients.filter(p =>
         p.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.medicalRecordNumber?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const filteredReports = reports.filter(r =>
+    const pendingPatients = baseFilteredPatients.filter(p => p.status !== 'Completed');
+    const completedPatients = baseFilteredPatients.filter(p => p.status === 'Completed');
+
+    const baseFilteredReports = reports.filter(r =>
         r.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         r.patient?.fullName?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const pendingReports = baseFilteredReports.filter(r => r.status !== 'Reviewed');
+    const completedReports = baseFilteredReports.filter(r => r.status === 'Reviewed');
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const metrics = {
+        assignedToday: patients.filter(p => new Date(p.createdAt) >= todayStart).length,
+        viewedToday: patients.filter(p => p.status === 'Completed' && p.lastVisit && new Date(p.lastVisit) >= todayStart).length,
+        remainingOverall: patients.filter(p => p.status !== 'Completed').length
+    };
+
     const handleLogout = () => {
         logout();
         navigate('/login');
+    };
+
+    const handleMarkAsCompleted = async (patientId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients/${patientId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: 'Completed', lastVisit: new Date().toISOString() })
+            });
+
+            if (response.ok) {
+                // Instantly update UI instead of re-fetching
+                setPatients(prev => prev.map(p => p._id === patientId ? { ...p, status: 'Completed', lastVisit: new Date().toISOString() } : p));
+            } else {
+                alert('Failed to mark patient as completed');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error updating patient status');
+        }
+    };
+
+    const handleMarkReportAsViewed = async (reportId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports/${reportId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: 'Reviewed' })
+            });
+
+            if (response.ok) {
+                // Instantly update UI
+                setReports(prev => prev.map(r => r._id === reportId ? { ...r, status: 'Reviewed' } : r));
+            } else {
+                alert('Failed to mark report as viewed');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error updating report status');
+        }
     };
 
     return (
@@ -160,14 +254,22 @@ export default function DoctorDashboard() {
                     </button>
                     <button onClick={() => setActiveView('patients')} className={`flex w-full items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all group ${activeView === 'patients' ? 'text-white bg-[#0065a3]' : 'text-slate-600 hover:text-[#0065a3] hover:bg-blue-50/50'}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`mr-3 ${activeView === 'patients' ? 'text-white' : 'text-slate-400 group-hover:text-[#0065a3]'}`}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                        My Patients
+                        Pending Patients
+                    </button>
+                    <button onClick={() => setActiveView('completed')} className={`flex w-full items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all group mt-1 ${activeView === 'completed' ? 'text-white bg-[#0065a3]' : 'text-slate-600 hover:text-[#0065a3] hover:bg-blue-50/50'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`mr-3 ${activeView === 'completed' ? 'text-white' : 'text-slate-400 group-hover:text-[#0065a3]'}`}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></svg>
+                        Viewed Patients
                     </button>
 
 
                     <div className="px-3 mb-2 mt-8 text-xs font-bold text-gray-400 uppercase tracking-wider">Clinical</div>
                     <button onClick={() => setActiveView('reports')} className={`flex w-full items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all group ${activeView === 'reports' ? 'text-white bg-[#0065a3]' : 'text-slate-600 hover:text-[#0065a3] hover:bg-blue-50/50'}`}>
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`mr-3 ${activeView === 'reports' ? 'text-white' : 'text-slate-400 group-hover:text-[#0065a3]'}`}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
-                        Reports & Labs
+                        Pending Reports & Labs
+                    </button>
+                    <button onClick={() => setActiveView('completed_reports')} className={`flex w-full items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all group mt-1 ${activeView === 'completed_reports' ? 'text-white bg-[#0065a3]' : 'text-slate-600 hover:text-[#0065a3] hover:bg-blue-50/50'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`mr-3 ${activeView === 'completed_reports' ? 'text-white' : 'text-slate-400 group-hover:text-[#0065a3]'}`}><rect width="18" height="18" x="3" y="3" rx="2" /><path d="m9 12 2 2 4-4" /></svg>
+                        Viewed Reports
                     </button>
 
                 </nav>
@@ -202,10 +304,22 @@ export default function DoctorDashboard() {
                 {/* Header */}
                 <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-200 px-8 py-4 z-10 flex justify-between items-center">
                     <div>
-                        <h1 className="text-xl font-bold text-slate-800">{activeView === 'patients' ? 'Assigned Patients' : activeView === 'reports' ? 'Reports & Labs' : 'Dashboard Overview'}</h1>
-                        <p className="text-sm text-gray-500">{activeView === 'patients' ? 'Manage your patient list and daily appointments' : activeView === 'reports' ? 'View and manage patient diagnosis reports' : 'Welcome back to your dashboard'}</p>
+                        <h1 className="text-xl font-bold text-slate-800">{activeView === 'patients' ? 'Assigned Patients' : activeView === 'completed' ? 'Viewed Patients' : activeView === 'reports' ? 'Reports & Labs' : activeView === 'completed_reports' ? 'Viewed Reports' : 'Dashboard Overview'}</h1>
+                        <p className="text-sm text-gray-500">{activeView === 'patients' ? 'Manage your patient list and daily appointments' : activeView === 'completed' ? 'History of patients you have already seen and treated' : activeView === 'reports' ? 'Review unread patient diagnosis reports' : activeView === 'completed_reports' ? 'History of reports you have already reviewed' : 'Welcome back to your dashboard'}</p>
                     </div>
                     <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-3 border-r border-gray-200 pr-4 mr-1">
+                            <span className={`text-sm font-bold ${isAvailable ? 'text-green-600' : 'text-gray-400'}`}>
+                                {isAvailable ? 'Available for Patients' : 'Not Available'}
+                            </span>
+                            <button
+                                onClick={toggleAvailability}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isAvailable ? 'bg-green-500' : 'bg-gray-300'}`}
+                                title={isAvailable ? "Set as Not Available" : "Set as Available"}
+                            >
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAvailable ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                        </div>
                         <div className="relative">
                             <input
                                 type="text"
@@ -232,7 +346,7 @@ export default function DoctorDashboard() {
                         {/* Main Table (8 cols) */}
                         <div className="lg:col-span-8">
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                                {activeView === 'patients' && (
+                                {(activeView === 'patients' || activeView === 'completed') && (
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left">
                                             <thead>
@@ -248,7 +362,7 @@ export default function DoctorDashboard() {
                                             <tbody className="divide-y divide-gray-50">
                                                 {loading ? (
                                                     <tr><td colSpan="6" className="py-8 text-center text-gray-500">Loading patients...</td></tr>
-                                                ) : filteredPatients.length > 0 ? filteredPatients.map((patient, idx) => (
+                                                ) : (activeView === 'patients' ? pendingPatients : completedPatients).length > 0 ? (activeView === 'patients' ? pendingPatients : completedPatients).map((patient, idx) => (
                                                     <tr key={idx} className="group hover:bg-slate-50 transition-colors">
                                                         <td className="py-4 px-6">
                                                             <div className="flex items-center gap-3">
@@ -267,15 +381,30 @@ export default function DoctorDashboard() {
                                                         </td>
                                                         <td className="py-4 px-4 text-xs text-gray-500">{patient.contactNumber}</td>
                                                         <td className="py-4 px-4">
-                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border 
-                                                            ${patient.admissionStatus === 'Critical' ? 'bg-red-50 text-red-700 border-red-100' :
-                                                                    patient.admissionStatus === 'Out-Patient' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                                        'bg-blue-50 text-blue-700 border-blue-100'}`}>
-                                                                {patient.admissionStatus}
-                                                            </span>
+                                                            <div className="flex flex-col gap-1 items-start">
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider
+                                                                ${patient.admissionStatus === 'Critical' ? 'bg-red-50 text-red-700 border-red-100' :
+                                                                        patient.admissionStatus === 'Out-Patient' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                                                            'bg-blue-50 text-blue-700 border-blue-100'}`}>
+                                                                    {patient.admissionStatus}
+                                                                </span>
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider
+                                                                ${patient.status === 'Completed' ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
+                                                                    {patient.status || 'Pending'}
+                                                                </span>
+                                                            </div>
                                                         </td>
                                                         <td className="py-4 px-6 text-right">
                                                             <div className="flex items-center justify-end gap-2">
+                                                                {patient.status !== 'Completed' && (
+                                                                    <button
+                                                                        title="Mark as Completed"
+                                                                        onClick={() => handleMarkAsCompleted(patient._id)}
+                                                                        className="text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 px-2.5 py-1.5 rounded-md hover:bg-green-100 transition-colors uppercase tracking-wider cursor-pointer"
+                                                                    >
+                                                                        Done
+                                                                    </button>
+                                                                )}
                                                                 <button
                                                                     title="Select for Prescription"
                                                                     onClick={() => {
@@ -308,14 +437,14 @@ export default function DoctorDashboard() {
                                     </div>
                                 )}
 
-                                {activeView === 'reports' && (
+                                {(activeView === 'reports' || activeView === 'completed_reports') && (
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left">
                                             <thead>
                                                 <tr className="bg-gray-50 border-b border-gray-100">
                                                     <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Report Title</th>
                                                     <th className="py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Patient</th>
-                                                    <th className="py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
+                                                    <th className="py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type / Status</th>
                                                     <th className="py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
                                                     <th className="py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                                                 </tr>
@@ -323,7 +452,7 @@ export default function DoctorDashboard() {
                                             <tbody className="divide-y divide-gray-50">
                                                 {loading ? (
                                                     <tr><td colSpan="5" className="py-8 text-center text-gray-500">Loading reports...</td></tr>
-                                                ) : filteredReports.length > 0 ? filteredReports.map((report, idx) => (
+                                                ) : (activeView === 'reports' ? pendingReports : completedReports).length > 0 ? (activeView === 'reports' ? pendingReports : completedReports).map((report, idx) => (
                                                     <tr key={idx} className="group hover:bg-slate-50 transition-colors">
                                                         <td className="py-4 px-6">
                                                             <div className="flex items-center gap-3">
@@ -335,15 +464,32 @@ export default function DoctorDashboard() {
                                                         </td>
                                                         <td className="py-4 px-4 text-sm text-gray-600">{report.patient?.fullName || 'Unknown'}</td>
                                                         <td className="py-4 px-4">
-                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                                {report.fileCategory}
-                                                            </span>
+                                                            <div className="flex flex-col gap-1 items-start">
+                                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-gray-50 text-gray-600 border-gray-200 uppercase tracking-wider">
+                                                                    {report.fileCategory}
+                                                                </span>
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider
+                                                                ${report.status === 'Reviewed' ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
+                                                                    {report.status || 'Pending'}
+                                                                </span>
+                                                            </div>
                                                         </td>
                                                         <td className="py-4 px-4 text-xs text-gray-500">{new Date(report.createdAt).toLocaleDateString()}</td>
-                                                        <td className="py-4 px-6 text-right">
-                                                            <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${(report.filePath || '').replace(/\\/g, '/').replace(/^server\//, '')}`} target="_blank" rel="noopener noreferrer" className="text-[#0065a3] hover:underline text-xs font-semibold">
-                                                                View
-                                                            </a>
+                                                        <td className="py-4 px-6 text-right cursor-default">
+                                                            <div className="flex items-center justify-end gap-3">
+                                                                <a href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${(report.filePath || '').replace(/\\/g, '/').replace(/^server\//, '')}`} target="_blank" rel="noopener noreferrer" className="text-white hover:bg-blue-600 bg-[#0065a3] px-3 py-1.5 rounded-md transition-colors text-xs font-semibold shadow-sm">
+                                                                    View
+                                                                </a>
+                                                                {report.status !== 'Reviewed' && (
+                                                                    <button
+                                                                        title="Mark as Reviewed"
+                                                                        onClick={() => handleMarkReportAsViewed(report._id)}
+                                                                        className="text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 px-2.5 py-1.5 rounded-md hover:bg-green-100 transition-colors uppercase tracking-wider cursor-pointer"
+                                                                    >
+                                                                        Done
+                                                                    </button>
+                                                                )}
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 )) : (
@@ -359,9 +505,40 @@ export default function DoctorDashboard() {
                                 )}
 
                                 {activeView === 'overview' && (
-                                    <div className="p-8 text-center text-gray-500">
-                                        <h2 className="text-lg font-bold mb-2">Welcome, Dr. {user?.name}</h2>
-                                        <p>Select "My Patients" or "Reports & Labs" from the sidebar to manage your clinical data.</p>
+                                    <div className="p-8">
+                                        <div className="mb-8 border-b border-gray-100 pb-6">
+                                            <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-500 mb-2">Welcome Back, Dr. {user?.name}</h2>
+                                            <p className="text-gray-500 font-medium">Here is your daily workflow overview. Have a great day.</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <div className="bg-gradient-to-br from-[#0065a3] to-blue-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 -mt-2 -mr-2 bg-white/10 w-24 h-24 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
+                                                <h3 className="text-blue-100 text-sm font-bold uppercase tracking-wider mb-2 relative z-10">Assigned Today</h3>
+                                                <div className="flex items-end gap-3 relative z-10">
+                                                    <span className="text-5xl font-black text-white">{metrics.assignedToday}</span>
+                                                    <span className="text-blue-200 text-sm font-medium mb-1">Patients</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 -mt-2 -mr-2 bg-white/10 w-24 h-24 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
+                                                <h3 className="text-emerald-100 text-sm font-bold uppercase tracking-wider mb-2 relative z-10">Viewed Today</h3>
+                                                <div className="flex items-end gap-3 relative z-10">
+                                                    <span className="text-5xl font-black text-white">{metrics.viewedToday}</span>
+                                                    <span className="text-emerald-200 text-sm font-medium mb-1">Completed</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-gradient-to-br from-orange-400 to-orange-600 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
+                                                <div className="absolute top-0 right-0 -mt-2 -mr-2 bg-white/10 w-24 h-24 rounded-full blur-2xl group-hover:bg-white/20 transition-all"></div>
+                                                <h3 className="text-orange-100 text-sm font-bold uppercase tracking-wider mb-2 relative z-10">Remaining Active</h3>
+                                                <div className="flex items-end gap-3 relative z-10">
+                                                    <span className="text-5xl font-black text-white">{metrics.remainingOverall}</span>
+                                                    <span className="text-orange-200 text-sm font-medium mb-1">Pending</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>

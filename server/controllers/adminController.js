@@ -2,6 +2,9 @@ import User from '../models/User.js';
 import Patient from '../models/Patient.js';
 import Report from '../models/Report.js';
 import ActivityLog from '../models/ActivityLog.js';
+import DeletedStaff from '../models/DeletedStaff.js';
+import DeletedPatient from '../models/DeletedPatient.js';
+import DeletedReport from '../models/DeletedReport.js';
 
 const getDashboardStats = async (req, res) => {
     try {
@@ -117,7 +120,7 @@ const createStaffMember = async (req, res) => {
 const getAllStaff = async (req, res) => {
     try {
         const staff = await User.find({
-            role: { $in: ['staff', 'doctor', 'technician', 'receptionist'] }
+            role: { $in: ['staff', 'doctor', 'technician', 'receptionist', 'patient_admin'] }
         }).select('-password');
 
         res.json({ staff });
@@ -139,11 +142,29 @@ const getStorageAnalytics = async (req, res) => {
         const limitGB = 1000; // Mock limit of 1000 GB
         const percentageUsed = Math.min(Math.round((totalSizeGB / limitGB) * 100), 100);
 
+        // Monthly aggregation to compute average monthly growth over the last 6 months
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const monthlyGrowthAgg = await Report.aggregate([
+            { $match: { createdAt: { $gte: sixMonthsAgo } } },
+            {
+                $group: {
+                    _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
+                    size: { $sum: '$fileSize' }
+                }
+            }
+        ]);
+        const avgMonthlyGrowthGB = monthlyGrowthAgg.length > 0
+            ? parseFloat((monthlyGrowthAgg.reduce((acc, m) => acc + m.size, 0) / monthlyGrowthAgg.length / (1024 * 1024 * 1024)).toFixed(2))
+            : 0;
+
         const storageOverview = {
             total: '1000 GB',
             used: `${totalSizeGB} GB`,
             available: `${(limitGB - totalSizeGB).toFixed(2)} GB`,
-            percentage: percentageUsed
+            percentage: percentageUsed,
+            totalFiles: totalReports,
+            avgMonthlyGrowth: avgMonthlyGrowthGB
         };
 
         // 2. Storage By Type (Category)
@@ -289,15 +310,34 @@ const deleteStaffMember = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        const reason = req.body?.reason || 'No reason provided';
+
+        // Archive staff record before deletion
+        await DeletedStaff.create({
+            originalId: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            department: user.department,
+            contactNumber: user.contactNumber,
+            employeeId: user.employeeId,
+            isActive: user.isActive,
+            staffCreatedAt: user.createdAt,
+            deletedBy: req.user._id,
+            deletedByName: req.user.name,
+            deletedByEmail: req.user.email,
+            deletionReason: reason
+        });
+
         await User.deleteOne({ _id: id });
 
         await ActivityLog.create({
             user: req.user._id,
             action: 'DELETE_STAFF',
-            details: `Deleted staff member: ${user.name} (${user.role})`
+            details: `Deleted staff member: ${user.name} (${user.role}) – Reason: ${reason}`
         });
 
-        res.json({ message: 'Staff member removed' });
+        res.json({ message: 'Staff member removed and archived successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -406,4 +446,271 @@ const getUploadStats = async (req, res) => {
     }
 };
 
-export { getDashboardStats, getStaffDashboardData, createStaffMember, getAllStaff, getStorageAnalytics, updateStaffMember, deleteStaffMember, getUploadStats };
+// ================== ADMIN MODULE METHODS ==================
+
+// --- Patients ---
+const getAdminPatients = async (req, res) => {
+    try {
+        const patients = await Patient.find({});
+        res.json(patients);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const updateAdminPatient = async (req, res) => {
+    try {
+        const updated = await Patient.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const deleteAdminPatient = async (req, res) => {
+    try {
+        const patient = await Patient.findById(req.params.id);
+        if (!patient) return res.status(404).json({ message: 'Patient not found' });
+        
+        await DeletedPatient.create({
+            originalId: patient._id.toString(),
+            medicalRecordNumber: patient.medicalRecordNumber,
+            fullName: patient.fullName,
+            dateOfBirth: patient.dateOfBirth,
+            gender: patient.gender,
+            address: patient.address,
+            contactNumber: patient.contactNumber,
+            email: patient.email,
+            deletedBy: req.user._id,
+            deletedByName: req.user.name,
+            deletedByEmail: req.user.email,
+            deletionReason: req.body.reason || 'No reason provided'
+        });
+
+        await Patient.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Patient removed successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// --- Doctors ---
+const getAdminDoctors = async (req, res) => {
+    try {
+        const doctors = await User.find({ role: 'doctor' }).select('-password');
+        res.json(doctors);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const updateAdminDoctor = async (req, res) => {
+    try {
+        if (req.body.password) {
+            const user = await User.findById(req.params.id);
+            if (user) {
+                user.password = req.body.password;
+                await user.save();
+            }
+        }
+        const updated = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: { name: req.body.name, email: req.body.email, specialization: req.body.specialization } },
+            { new: true }
+        ).select('-password');
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const deleteAdminDoctor = async (req, res) => {
+    try {
+        const doctor = await User.findById(req.params.id);
+        if (!doctor) return res.status(404).json({ message: 'Doctor not found' });
+
+        await DeletedStaff.create({
+            originalId: doctor._id.toString(),
+            name: doctor.name,
+            email: doctor.email,
+            role: doctor.role,
+            department: doctor.department,
+            contactNumber: doctor.contactNumber,
+            deletedBy: req.user._id,
+            deletedByName: req.user.name,
+            deletedByEmail: req.user.email,
+            deletionReason: req.body.reason || 'No reason provided'
+        });
+
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Doctor removed successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// --- Lab Technicians ---
+const getAdminLabTechnicians = async (req, res) => {
+    try {
+        const techs = await User.find({ role: 'technician' }).select('-password');
+        res.json(techs);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const updateAdminLabTechnician = async (req, res) => {
+    try {
+        if (req.body.password) {
+            const user = await User.findById(req.params.id);
+            if (user) {
+                user.password = req.body.password;
+                await user.save();
+            }
+        }
+        const updated = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: { name: req.body.name, email: req.body.email, department: req.body.department } },
+            { new: true }
+        ).select('-password');
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const deleteAdminLabTechnician = async (req, res) => {
+    try {
+        const tech = await User.findById(req.params.id);
+        if (!tech) return res.status(404).json({ message: 'Lab Technician not found' });
+
+        await DeletedStaff.create({
+            originalId: tech._id.toString(),
+            name: tech.name,
+            email: tech.email,
+            role: tech.role,
+            department: tech.department,
+            contactNumber: tech.contactNumber,
+            deletedBy: req.user._id,
+            deletedByName: req.user.name,
+            deletedByEmail: req.user.email,
+            deletionReason: req.body.reason || 'No reason provided'
+        });
+
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Lab Technician removed successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// --- Receptionists ---
+const getAdminReceptionists = async (req, res) => {
+    try {
+        const recep = await User.find({ role: 'receptionist' }).select('-password');
+        res.json(recep);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const updateAdminReceptionist = async (req, res) => {
+    try {
+        if (req.body.password) {
+            const user = await User.findById(req.params.id);
+            if (user) {
+                user.password = req.body.password;
+                await user.save();
+            }
+        }
+        const updated = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: { name: req.body.name, email: req.body.email } },
+            { new: true }
+        ).select('-password');
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const deleteAdminReceptionist = async (req, res) => {
+    try {
+        const recep = await User.findById(req.params.id);
+        if (!recep) return res.status(404).json({ message: 'Receptionist not found' });
+
+        await DeletedStaff.create({
+            originalId: recep._id.toString(),
+            name: recep.name,
+            email: recep.email,
+            role: recep.role,
+            department: recep.department,
+            contactNumber: recep.contactNumber,
+            deletedBy: req.user._id,
+            deletedByName: req.user.name,
+            deletedByEmail: req.user.email,
+            deletionReason: req.body.reason || 'No reason provided'
+        });
+
+        await User.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Receptionist removed successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// --- Reports ---
+const getAdminReports = async (req, res) => {
+    try {
+        // Exclude filePath & secureToken to satisfy "MUST NOT view the actual medical report files"
+        const reports = await Report.find({})
+            .select('-filePath -secureToken')
+            .populate('patient', 'fullName')
+            .populate('uploadedBy', 'name role');
+        res.json(reports);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const deleteAdminReport = async (req, res) => {
+    try {
+        const report = await Report.findById(req.params.id).populate('patient', 'fullName').populate('uploadedBy', 'name');
+        if (!report) return res.status(404).json({ message: 'Report not found' });
+
+        await DeletedReport.create({
+            originalId: report._id.toString(),
+            patientName: report.patient ? report.patient.fullName : 'Unknown',
+            uploadedByName: report.uploadedBy ? report.uploadedBy.name : 'Unknown',
+            title: report.title,
+            fileCategory: report.fileCategory,
+            filePath: report.filePath || '',
+            reportCreatedAt: report.createdAt,
+            deletedBy: req.user._id,
+            deletedByName: req.user.name,
+            deletedByEmail: req.user.email,
+            deletionReason: req.body.reason || 'No reason provided'
+        });
+
+        await Report.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Report removed successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export { 
+    getDashboardStats, 
+    getStaffDashboardData, 
+    createStaffMember, 
+    getAllStaff, 
+    getStorageAnalytics, 
+    updateStaffMember, 
+    deleteStaffMember, 
+    getUploadStats,
+    getAdminPatients, updateAdminPatient, deleteAdminPatient,
+    getAdminDoctors, updateAdminDoctor, deleteAdminDoctor,
+    getAdminLabTechnicians, updateAdminLabTechnician, deleteAdminLabTechnician,
+    getAdminReceptionists, updateAdminReceptionist, deleteAdminReceptionist,
+    getAdminReports, deleteAdminReport
+};

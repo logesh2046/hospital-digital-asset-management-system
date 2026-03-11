@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 
+// Actions that belong to Patient Admin Dashboard – excluded from Staff Dashboard
+const PATIENT_ACTIONS = ['CREATED_PATIENT', 'CREATE_PATIENT', 'UPDATE_PATIENT', 'DELETE_PATIENT'];
+
 export default function StaffDashboard() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -41,6 +44,9 @@ export default function StaffDashboard() {
         logout();
         navigate('/login');
     };
+
+    // Filter out patient-related activities (shown in Patient Admin Dashboard instead)
+    const filteredLogs = activityLogs.filter(log => !PATIENT_ACTIONS.includes(log.action));
 
     return (
         <div className="flex h-screen bg-[#f8fafc] text-slate-800">
@@ -150,7 +156,7 @@ export default function StaffDashboard() {
                         <div className="flex justify-between items-center mb-6">
                             <div>
                                 <h3 className="text-lg font-bold text-slate-800">Recent Activity</h3>
-                                <p className="text-xs text-gray-400">Latest actions by clinical staff</p>
+                                <p className="text-xs text-gray-400">Latest actions by clinical staff (patient records shown in Patient Admin Dashboard)</p>
                             </div>
                         </div>
                         <div className="overflow-x-auto">
@@ -167,10 +173,10 @@ export default function StaffDashboard() {
                                 <tbody className="divide-y divide-gray-100">
                                     {loading ? (
                                         <tr><td colSpan="5" className="p-4 text-center text-gray-500">Loading activities...</td></tr>
-                                    ) : activityLogs.length === 0 ? (
+                                    ) : filteredLogs.length === 0 ? (
                                         <tr><td colSpan="5" className="p-4 text-center text-gray-500">No recent activity found.</td></tr>
                                     ) : (
-                                        activityLogs.map((log) => (
+                                        filteredLogs.map((log) => (
                                             <tr key={log._id} className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-4 py-3 font-medium text-slate-700">{log.user?.name || 'Unknown'}</td>
                                                 <td className="px-4 py-3 text-sm text-gray-600 capitalize">{log.user?.role || '-'}</td>

@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.route('/')
     .get(protect, getPatients)
-    .post(protect, authorize('admin', 'receptionist'), createPatient);
+    .post(protect, authorize('admin', 'receptionist', 'patient_admin'), createPatient);
 
 router.route('/me')
     .get(protect, getMe)
@@ -14,7 +14,7 @@ router.route('/me')
 
 router.route('/:id')
     .get(protect, getPatientById)
-    .put(protect, authorize('admin', 'receptionist'), updatePatient)
-    .delete(protect, authorize('admin', 'receptionist'), deletePatient);
+    .put(protect, authorize('admin', 'receptionist', 'doctor', 'patient_admin'), updatePatient)
+    .delete(protect, authorize('admin', 'receptionist', 'patient_admin'), deletePatient);
 
 export default router;

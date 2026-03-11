@@ -16,13 +16,60 @@ export default function TechnicianDashboard() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
 
+    // Availability State
+    const [isAvailable, setIsAvailable] = useState(user?.isAvailable !== false);
+
+    const toggleAvailability = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const newStatus = !isAvailable;
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/availability`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ isAvailable: newStatus })
+            });
+
+            if (response.ok) {
+                setIsAvailable(newStatus);
+                // Also update local storage so it persists on reload
+                const storedUser = JSON.parse(localStorage.getItem('user'));
+                if (storedUser) {
+                    storedUser.isAvailable = newStatus;
+                    localStorage.setItem('user', JSON.stringify(storedUser));
+                }
+            }
+        } catch (error) {
+            console.error('Error toggling availability:', error);
+        }
+    };
+
     // Navigation State
     const [currentView, setCurrentView] = useState('upload');
 
     // Form State
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPatient, setSelectedPatient] = useState(null);
-    const [reportType, setReportType] = useState('Blood Test');
+
+    const getReportTypesForDepartment = (dept) => {
+        switch (dept) {
+            case 'Radiology Department': return ['X-Ray'];
+            case 'MRI Department': return ['MRI Scan'];
+            case 'CT Scan Department': return ['CT Scan'];
+            case 'Pathology / Laboratory': return ['Blood Test'];
+            case 'Ultrasound Department': return ['Ultrasound'];
+            default: return ['Blood Test', 'MRI Scan', 'CT Scan', 'X-Ray', 'Other'];
+        }
+    };
+
+    const availableReportTypes = getReportTypesForDepartment(user?.department);
+    const [reportType, setReportType] = useState(availableReportTypes[0]);
+
+    useEffect(() => {
+        setReportType(availableReportTypes[0]);
+    }, [user?.department]);
     const [selectedFile, setSelectedFile] = useState(null);
     const [showPatientDropdown, setShowPatientDropdown] = useState(false);
 
@@ -71,6 +118,10 @@ export default function TechnicianDashboard() {
         setSelectedPatient(patient);
         setSearchTerm(patient.fullName);
         setShowPatientDropdown(false);
+        // Automatically switch the Report Type dropdown to the matching scan requested
+        if (patient.requestedReport) {
+            setReportType(patient.requestedReport);
+        }
     };
 
     const handleFileChange = (e) => {
@@ -134,7 +185,9 @@ export default function TechnicianDashboard() {
     };
 
     // Derived State for UI
-    const filteredPatients = patients.filter(p =>
+    const patientsNeedingReports = patients.filter(p => !reports.some(r => (r.patient?._id || r.patient) === p._id));
+
+    const filteredPatients = patientsNeedingReports.filter(p =>
         p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.medicalRecordNumber.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -168,7 +221,12 @@ export default function TechnicianDashboard() {
                         </li>
                         <li>
                             <button onClick={() => setCurrentView('patients')} className={`w-full text-left flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${currentView === 'patients' ? 'text-white bg-[#0065a3] shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}>
-                                Receptionist Added Patients
+                                My Assigned Patients
+                            </button>
+                        </li>
+                        <li>
+                            <button onClick={() => setCurrentView('uploaded')} className={`w-full text-left flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${currentView === 'uploaded' ? 'text-white bg-[#0065a3] shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}>
+                                Uploaded Reports
                             </button>
                         </li>
                     </ul>
@@ -198,8 +256,20 @@ export default function TechnicianDashboard() {
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto">
                 {/* Page Header */}
-                <div className="bg-white border-b border-gray-200 px-8 py-5">
+                <div className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center">
                     <h1 className="text-xl font-bold text-slate-700">Technician Dashboard</h1>
+                    <div className="flex items-center gap-3">
+                        <span className={`text-sm font-bold ${isAvailable ? 'text-green-600' : 'text-gray-400'}`}>
+                            {isAvailable ? 'Available for Requests' : 'Not Available'}
+                        </span>
+                        <button
+                            onClick={toggleAvailability}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${isAvailable ? 'bg-green-500' : 'bg-gray-300'}`}
+                            title={isAvailable ? "Set as Not Available" : "Set as Available"}
+                        >
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isAvailable ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
@@ -209,10 +279,7 @@ export default function TechnicianDashboard() {
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Reports Uploaded Today</p>
                             <h3 className="text-3xl font-bold text-slate-800">{reportsToday}</h3>
                         </div>
-                        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Total Reports</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{reports.length}</h3>
-                        </div>
+
                         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Active Patients</p>
                             <h3 className="text-3xl font-bold text-slate-800">{patients.length}</h3>
@@ -237,35 +304,64 @@ export default function TechnicianDashboard() {
                                                     Select Patient
                                                 </label>
                                                 <div className="relative">
-                                                    <input
-                                                        type="text"
-                                                        value={searchTerm}
-                                                        onChange={handlePatientSearch}
-                                                        onFocus={() => setShowPatientDropdown(true)}
-                                                        placeholder="Search by ID or Name..."
-                                                        className="w-full pl-10 pr-4 py-2.5 rounded-md border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all"
-                                                    />
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                    </svg>
-
-                                                    {showPatientDropdown && searchTerm && (
-                                                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
-                                                            {filteredPatients.length > 0 ? (
-                                                                filteredPatients.map(patient => (
-                                                                    <div
-                                                                        key={patient._id}
-                                                                        onClick={() => selectPatient(patient)}
-                                                                        className="px-4 py-2 hover:bg-gray-50 cursor-pointer text-sm"
-                                                                    >
-                                                                        <div className="font-semibold text-slate-700">{patient.fullName}</div>
-                                                                        <div className="text-xs text-gray-500">{patient.medicalRecordNumber}</div>
-                                                                    </div>
-                                                                ))
-                                                            ) : (
-                                                                <div className="px-4 py-2 text-sm text-gray-500">No patients found.</div>
-                                                            )}
+                                                    {selectedPatient ? (
+                                                        <div className="w-full flex justify-between items-center pl-4 pr-2 py-2 rounded-md border border-[#0065a3] bg-blue-50/30 text-sm">
+                                                            <div>
+                                                                <div className="font-bold text-[#0065a3]">{selectedPatient.fullName}</div>
+                                                                <div className="text-xs text-gray-500 mb-0.5">{selectedPatient.medicalRecordNumber}</div>
+                                                                {selectedPatient.requestedReport && (
+                                                                    <div className="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 inline-block px-1.5 py-0.5 rounded border border-indigo-100">Requested: {selectedPatient.requestedReport}</div>
+                                                                )}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                title="Change Patient"
+                                                                onClick={() => { setSelectedPatient(null); setSearchTerm(''); }}
+                                                                className="text-gray-400 hover:text-red-500 transition-colors p-1 bg-white rounded-full border border-gray-200 shadow-sm"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
                                                         </div>
+                                                    ) : (
+                                                        <>
+                                                            <input
+                                                                type="text"
+                                                                value={searchTerm}
+                                                                onChange={handlePatientSearch}
+                                                                onFocus={() => setShowPatientDropdown(true)}
+                                                                placeholder="Search your assigned patients..."
+                                                                className="w-full pl-10 pr-4 py-2.5 rounded-md border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all"
+                                                            />
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                            </svg>
+
+                                                            {showPatientDropdown && searchTerm && (
+                                                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                                                                    {filteredPatients.length > 0 ? (
+                                                                        filteredPatients.map(patient => (
+                                                                            <div
+                                                                                key={patient._id}
+                                                                                onClick={() => selectPatient(patient)}
+                                                                                className="px-4 py-3 hover:bg-gray-50 cursor-pointer text-sm border-b last:border-0 border-gray-100 flex justify-between items-center"
+                                                                            >
+                                                                                <div>
+                                                                                    <div className="font-semibold text-slate-700">{patient.fullName}</div>
+                                                                                    <div className="text-xs text-gray-500">{patient.medicalRecordNumber}</div>
+                                                                                </div>
+                                                                                {patient.requestedReport && (
+                                                                                    <span className="text-[10px] font-bold text-indigo-600 uppercase bg-indigo-50 px-2 py-1 rounded">{patient.requestedReport}</span>
+                                                                                )}
+                                                                            </div>
+                                                                        ))
+                                                                    ) : (
+                                                                        <div className="px-4 py-2 text-sm text-gray-500">No patients found.</div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
@@ -277,12 +373,11 @@ export default function TechnicianDashboard() {
                                                     value={reportType}
                                                     onChange={(e) => setReportType(e.target.value)}
                                                     className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all bg-white"
+                                                    disabled={availableReportTypes.length === 1}
                                                 >
-                                                    <option>Blood Test</option>
-                                                    <option>MRI Scan</option>
-                                                    <option>CT Scan</option>
-                                                    <option>X-Ray</option>
-                                                    <option>Other</option>
+                                                    {availableReportTypes.map(type => (
+                                                        <option key={type} value={type}>{type}</option>
+                                                    ))}
                                                 </select>
                                             </div>
                                         </div>
@@ -369,7 +464,7 @@ export default function TechnicianDashboard() {
                             {/* Recently Added Patients */}
                             <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden p-6">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h2 className="text-lg font-bold text-[#0065a3]">Recently Added Patients</h2>
+                                    <h2 className="text-lg font-bold text-[#0065a3]">Recently Assigned Patients</h2>
                                     <button onClick={() => setCurrentView('patients')} className="text-sm font-semibold text-[#0065a3] hover:underline">View All Patients</button>
                                 </div>
                                 <div className="overflow-x-auto">
@@ -378,20 +473,20 @@ export default function TechnicianDashboard() {
                                             <tr className="border-b border-gray-100 bg-gray-50/50">
                                                 <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient Name</th>
                                                 <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">MRN</th>
-                                                <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Gender</th>
+                                                <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested Report</th>
                                                 <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
                                                 <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                                                 <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-50">
-                                            {[...patients].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5).map(patient => {
+                                            {[...patientsNeedingReports].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5).map(patient => {
                                                 const hasReport = reports.some(r => (r.patient?._id || r.patient) === patient._id);
                                                 return (
                                                     <tr key={patient._id} className="hover:bg-gray-50/50 transition-colors">
                                                         <td className="py-4 px-4 text-sm font-medium text-slate-700">{patient.fullName}</td>
                                                         <td className="py-4 px-4 text-sm text-gray-600 font-mono">{patient.medicalRecordNumber}</td>
-                                                        <td className="py-4 px-4 text-sm text-gray-600 capitalize">{patient.gender}</td>
+                                                        <td className="py-4 px-4 text-sm font-bold text-[#0065a3]">{patient.requestedReport || 'N/A'}</td>
                                                         <td className="py-4 px-4 text-sm text-gray-600">{patient.contactNumber}</td>
                                                         <td className="py-4 px-4">
                                                             {hasReport ? (
@@ -404,6 +499,7 @@ export default function TechnicianDashboard() {
                                                             <button
                                                                 onClick={() => {
                                                                     selectPatient(patient);
+                                                                    setCurrentView('upload');
                                                                     window.scrollTo({ top: 0, behavior: 'smooth' });
                                                                 }}
                                                                 className="text-xs font-semibold text-[#0065a3] bg-blue-50 px-3 py-1.5 rounded-md hover:bg-[#0065a3] hover:text-white transition-colors"
@@ -414,9 +510,16 @@ export default function TechnicianDashboard() {
                                                     </tr>
                                                 )
                                             })}
-                                            {patients.length === 0 && (
+                                            {patientsNeedingReports.length === 0 && (
                                                 <tr>
-                                                    <td colSpan="5" className="py-4 text-center text-sm text-gray-500">No patients available</td>
+                                                    <td colSpan="6" className="py-8 text-center text-sm text-gray-500">
+                                                        <div className="flex flex-col items-center justify-center">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-10 h-10 text-gray-300 mb-2">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                            </svg>
+                                                            <span>No pending patients assigned.</span>
+                                                        </div>
+                                                    </td>
                                                 </tr>
                                             )}
                                         </tbody>
@@ -428,14 +531,14 @@ export default function TechnicianDashboard() {
 
                     {currentView === 'patients' && (
                         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden p-6">
-                            <h2 className="text-lg font-bold text-[#0065a3] mb-4">Receptionist Added Patients Details</h2>
+                            <h2 className="text-lg font-bold text-[#0065a3] mb-4">My Assigned Patients</h2>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="border-b border-gray-100 bg-gray-50/50">
                                             <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient Name</th>
                                             <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">MRN</th>
-                                            <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Gender</th>
+                                            <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested Report</th>
                                             <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date of Birth</th>
                                             <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
                                             <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
@@ -443,7 +546,7 @@ export default function TechnicianDashboard() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
-                                        {[...patients].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(patient => {
+                                        {[...patientsNeedingReports].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(patient => {
                                             const isNew = (new Date() - new Date(patient.createdAt)) < 24 * 60 * 60 * 1000;
                                             const hasReport = reports.some(r => (r.patient?._id || r.patient) === patient._id);
                                             return (
@@ -455,7 +558,7 @@ export default function TechnicianDashboard() {
                                                         </div>
                                                     </td>
                                                     <td className="py-4 px-4 text-sm text-gray-600 font-mono">{patient.medicalRecordNumber}</td>
-                                                    <td className="py-4 px-4 text-sm text-gray-600 capitalize">{patient.gender}</td>
+                                                    <td className="py-4 px-4 text-sm font-bold text-[#0065a3]">{patient.requestedReport || 'N/A'}</td>
                                                     <td className="py-4 px-4 text-sm text-gray-600">{new Date(patient.dateOfBirth).toLocaleDateString()}</td>
                                                     <td className="py-4 px-4 text-sm text-gray-600">{patient.contactNumber}</td>
                                                     <td className="py-4 px-4">
@@ -473,6 +576,64 @@ export default function TechnicianDashboard() {
                                                 </tr>
                                             )
                                         })}
+                                        {patientsNeedingReports.length === 0 && (
+                                            <tr>
+                                                <td colSpan="7" className="py-12 text-center text-gray-500">
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-green-500 mb-3 opacity-80">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                                        </svg>
+                                                        <p className="font-semibold text-lg text-slate-700">All Caught Up!</p>
+                                                        <p className="text-sm mt-1">You have no pending patients assigned to you right now.</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {currentView === 'uploaded' && (
+                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden p-6">
+                            <h2 className="text-lg font-bold text-[#0065a3] mb-4">Uploaded Reports</h2>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="border-b border-gray-100 bg-gray-50/50">
+                                            <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Patient Name</th>
+                                            <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Report Title</th>
+                                            <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Report Type</th>
+                                            <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Uploaded At</th>
+                                            <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-50">
+                                        {[...reports].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).map(report => (
+                                            <tr key={report._id} className="hover:bg-gray-50/50 transition-colors">
+                                                <td className="py-4 px-4 text-sm font-medium text-slate-700">{report.patient?.fullName || 'Unknown Patient'}</td>
+                                                <td className="py-4 px-4 text-sm text-gray-600 font-medium">{report.title}</td>
+                                                <td className="py-4 px-4 text-sm text-[#0065a3] font-bold">{report.reportType}</td>
+                                                <td className="py-4 px-4 text-sm text-gray-600">{new Date(report.createdAt).toLocaleDateString()} {new Date(report.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                                <td className="py-4 px-4 text-right">
+                                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 uppercase tracking-wider">Uploaded</span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {reports.length === 0 && (
+                                            <tr>
+                                                <td colSpan="5" className="py-12 text-center text-gray-500">
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-gray-300 mb-3">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                                        </svg>
+                                                        <p className="font-semibold text-lg text-slate-700">No Uploaded Reports</p>
+                                                        <p className="text-sm mt-1">You haven't uploaded any reports yet.</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>

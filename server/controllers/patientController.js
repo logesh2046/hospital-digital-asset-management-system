@@ -1,6 +1,7 @@
 import Patient from '../models/Patient.js';
 import User from '../models/User.js';
 import ActivityLog from '../models/ActivityLog.js';
+import DeletedPatient from '../models/DeletedPatient.js';
 
 const getPatients = async (req, res) => {
     try {
@@ -9,8 +10,10 @@ const getPatients = async (req, res) => {
         // For strict privacy, only assigned.
         if (req.user.role === 'doctor') {
             patients = await Patient.find({ assignedDoctor: req.user._id });
-        } else if (req.user.role === 'admin' || req.user.role === 'receptionist' || req.user.role === 'technician') {
-            patients = await Patient.find({});
+        } else if (req.user.role === 'technician') {
+            patients = await Patient.find({ assignedTechnician: req.user._id });
+        } else if (req.user.role === 'admin' || req.user.role === 'receptionist' || req.user.role === 'staff' || req.user.role === 'patient_admin') {
+            patients = await Patient.find({}).populate('createdBy', 'name email');
         } else {
             return res.status(403).json({ message: 'Not authorized' });
         }
@@ -69,7 +72,8 @@ const createPatient = async (req, res) => {
             nextVisitDate,
             email,
             address,
-            user: userId
+            user: userId,
+            createdBy: req.user._id
         });
 
         const createdPatient = await patient.save();
@@ -143,7 +147,7 @@ const updateMe = async (req, res) => {
 
 const updatePatient = async (req, res) => {
     try {
-        const { fullName, age, gender, contactNumber, email, address, doctorName, nextVisitDate, department } = req.body;
+        const { fullName, age, gender, contactNumber, email, address, doctorName, nextVisitDate, department, status, lastVisit, technicianName, requestedReport } = req.body;
         const patient = await Patient.findById(req.params.id);
 
         if (!patient) {
@@ -156,6 +160,8 @@ const updatePatient = async (req, res) => {
         if (contactNumber) patient.contactNumber = contactNumber;
         if (email) patient.email = email;
         if (address) patient.address = address;
+        if (status) patient.status = status;
+        if (lastVisit) patient.lastVisit = lastVisit;
 
         let doctorId = patient.assignedDoctor;
         if (doctorName) {
@@ -171,6 +177,20 @@ const updatePatient = async (req, res) => {
 
         if (doctorName !== undefined) patient.doctorName = doctorName;
         if (nextVisitDate !== undefined) patient.nextVisitDate = nextVisitDate;
+
+        let technicianId = patient.assignedTechnician;
+        if (technicianName) {
+            const technician = await User.findOne({
+                role: 'technician',
+                name: { $regex: new RegExp(`^${technicianName.trim()}$`, 'i') }
+            });
+            if (technician) {
+                technicianId = technician._id;
+            }
+        }
+        patient.assignedTechnician = technicianId;
+        if (technicianName !== undefined) patient.technicianName = technicianName;
+        if (requestedReport !== undefined) patient.requestedReport = requestedReport;
 
         // If age is provided separately in body, convert it to dob
         if (req.body.dateOfBirth) {
@@ -193,21 +213,56 @@ const updatePatient = async (req, res) => {
 
 const deletePatient = async (req, res) => {
     try {
-        const patient = await Patient.findById(req.params.id);
+        const patient = await Patient.findById(req.params.id).populate('createdBy', 'name email role');
 
         if (!patient) {
             return res.status(404).json({ message: 'Patient not found' });
         }
+
+        const reason = req.body?.reason || 'No reason provided';
+
+        // Archive patient record before deletion
+        await DeletedPatient.create({
+            originalId: patient._id.toString(),
+            medicalRecordNumber: patient.medicalRecordNumber,
+            fullName: patient.fullName,
+            dateOfBirth: patient.dateOfBirth,
+            gender: patient.gender,
+            address: patient.address,
+            contactNumber: patient.contactNumber,
+            email: patient.email,
+            bloodGroup: patient.bloodGroup,
+            allergies: patient.allergies,
+            medicalHistory: patient.medicalHistory,
+            doctorName: patient.doctorName,
+            department: patient.department,
+            technicianName: patient.technicianName,
+            requestedReport: patient.requestedReport,
+            nextVisitDate: patient.nextVisitDate,
+            admissionStatus: patient.admissionStatus,
+            status: patient.status,
+            lastVisit: patient.lastVisit,
+            patientCreatedAt: patient.createdAt,
+            createdBy: {
+                name: patient.createdBy?.name || 'Unknown',
+                email: patient.createdBy?.email || '',
+                role: patient.createdBy?.role || ''
+            },
+            deletedBy: req.user._id,
+            deletedByName: req.user.name,
+            deletedByEmail: req.user.email,
+            deletionReason: reason
+        });
 
         await Patient.deleteOne({ _id: req.params.id });
 
         await ActivityLog.create({
             user: req.user._id,
             action: 'DELETE_PATIENT',
-            details: `Deleted patient ${patient.fullName}`
+            details: `Deleted patient ${patient.fullName} – Reason: ${reason}`
         });
 
-        res.json({ message: 'Patient removed' });
+        res.json({ message: 'Patient removed and archived successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

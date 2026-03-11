@@ -38,7 +38,8 @@ export const AuthProvider = ({ children }) => {
                     name: data.name,
                     email: data.email,
                     role: data.role,
-                    department: data.department
+                    department: data.department,
+                    isAvailable: data.isAvailable
                 };
 
                 localStorage.setItem('token', data.token);

@@ -12,10 +12,13 @@ import StaffManagement from './StaffManagement';
 import StaffUserManagement from './StaffUserManagement';
 import StaffDashboard from './StaffDashboard';
 import TechnicianDashboard from './TechnicianDashboard';
+import TechnicianManagement from './TechnicianManagement';
 import UploadStatistics from './UploadStatistics';
 import ActivityLogs from './ActivityLogs';
 import StorageAnalytics from './StorageAnalytics';
 import PublicSharedReport from './PublicSharedReport';
+import PatientAdminDashboard from './PatientAdminDashboard';
+import AdminDatabaseDashboard from './AdminDatabaseDashboard';
 
 const PrivateRoute = ({ children, allowedRoles }) => {
   const { user } = useAuth();
@@ -44,6 +47,7 @@ const AppContent = () => {
       case 'receptionist': return <PatientManagement />;
       case 'technician': return <TechnicianDashboard />;
       case 'staff': return <StaffDashboard />;
+      case 'patient_admin': return <PatientAdminDashboard />;
       default: return <Dashboard />;
     }
   };
@@ -95,6 +99,13 @@ const AppContent = () => {
           </PrivateRoute>
         } />
 
+        {/* Admin Database Dashboard Route - Admin Only */}
+        <Route path="/admin/dashboard" element={
+          <PrivateRoute allowedRoles={['admin']}>
+            <AdminDatabaseDashboard />
+          </PrivateRoute>
+        } />
+
         {/* Staff Dashboard Route - Staff Members Only */}
         <Route path="/staff-dashboard" element={
           <PrivateRoute allowedRoles={['staff']}>
@@ -115,8 +126,22 @@ const AppContent = () => {
           </PrivateRoute>
         } />
 
+        {/* Technician Management Route */}
+        <Route path="/technician-management" element={
+          <PrivateRoute allowedRoles={['receptionist', 'admin', 'staff']}>
+            <TechnicianManagement />
+          </PrivateRoute>
+        } />
+
         {/* Public Shared External Report Route */}
         <Route path="/shared-report/:id" element={<PublicSharedReport />} />
+
+        {/* Patient Admin Dashboard Route */}
+        <Route path="/patient-admin" element={
+          <PrivateRoute allowedRoles={['patient_admin']}>
+            <PatientAdminDashboard />
+          </PrivateRoute>
+        } />
 
       </Routes>
     </Router>

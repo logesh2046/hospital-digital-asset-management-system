@@ -16,6 +16,8 @@ import shareRoutes from './routes/shareRoutes.js';
 import prescriptionRoutes from './routes/prescriptionRoutes.js';
 import labRoutes from './routes/labRoutes.js';
 import otpRoutes from './routes/otpRoutes.js';
+import deletedPatientRoutes from './routes/deletedPatientRoutes.js';
+import deletedStaffRoutes from './routes/deletedStaffRoutes.js';
 
 dotenv.config();
 
@@ -64,6 +66,8 @@ app.use('/api/reports', secureAccessRoutes); // Secure access routes
 app.use('/api/share', shareRoutes); // New share routes
 app.use('/api/prescriptions', prescriptionRoutes); // Blueprint Strictly Requested
 app.use('/api/otp', otpRoutes);
+app.use('/api/deleted-patients', deletedPatientRoutes);
+app.use('/api/deleted-staff', deletedStaffRoutes);
 
 // Serve static assets from uploads (Ensure uploads folder exists)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

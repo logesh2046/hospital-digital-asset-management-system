@@ -12,6 +12,7 @@ export default function PatientManagement() {
     };
 
     const [patients, setPatients] = useState([]);
+    const [staffList, setStaffList] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const calculateAge = (dob) => {
@@ -36,8 +37,11 @@ export default function PatientManagement() {
         nextVisitDate: ''
     });
 
+    const [activeTab, setActiveTab] = useState('patients');
     const [editId, setEditId] = useState(null);
     const [viewPatient, setViewPatient] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState('all');
 
     const fetchPatients = async () => {
         try {
@@ -58,8 +62,26 @@ export default function PatientManagement() {
         }
     };
 
+    const fetchStaff = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/staff`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setStaffList(data.staff);
+            }
+        } catch (error) {
+            console.error('Error fetching staff:', error);
+        }
+    };
+
     useEffect(() => {
         fetchPatients();
+        fetchStaff();
     }, []);
 
     const handleInputChange = (e) => {
@@ -68,6 +90,9 @@ export default function PatientManagement() {
             const updated = { ...prev, [name]: value };
             if (name === 'dateOfBirth') {
                 updated.age = calculateAge(value).toString();
+            }
+            if (name === 'department') {
+                updated.doctorName = '';
             }
             return updated;
         });
@@ -185,14 +210,20 @@ export default function PatientManagement() {
 
                 <nav className="flex-1 overflow-y-auto py-4">
                     <ul className="space-y-1 px-3">
-
                         <li>
-                            <a href="#" className="flex items-center px-3 py-2 text-sm font-medium text-white bg-[#0065a3] rounded-md shadow-sm">
+                            <button onClick={() => setActiveTab('patients')} className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'patients' ? 'text-white bg-[#0065a3] shadow-sm' : 'text-gray-600 hover:text-[#0065a3] hover:bg-blue-50'}`}>
                                 Patients
-                            </a>
+                            </button>
                         </li>
                         <li>
-
+                            <button onClick={() => setActiveTab('doctors')} className={`w-full flex items-center px-3 py-2 mt-1 text-sm font-medium rounded-md transition-colors ${activeTab === 'doctors' ? 'text-white bg-[#0065a3] shadow-sm' : 'text-gray-600 hover:text-[#0065a3] hover:bg-blue-50'}`}>
+                                Available Doctors
+                            </button>
+                        </li>
+                        <li>
+                            <button onClick={() => navigate('/technician-management')} className={`w-full flex items-center px-3 py-2 mt-1 text-sm font-medium rounded-md transition-colors text-gray-600 hover:text-[#0065a3] hover:bg-blue-50`}>
+                                Assign Technicians
+                            </button>
                         </li>
                     </ul>
 
@@ -220,270 +251,387 @@ export default function PatientManagement() {
             <main className="flex-1 overflow-y-auto">
                 {/* Page Header */}
                 <div className="bg-white border-b border-gray-200 px-8 py-5">
-                    <h1 className="text-xl font-bold text-slate-700">Patient Management</h1>
+                    <h1 className="text-xl font-bold text-slate-700">{activeTab === 'patients' ? 'Patient Management' : 'Available Doctors'}</h1>
                 </div>
 
                 <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {activeTab === 'patients' ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
 
-                        <div className="lg:col-span-5 flex flex-col gap-6">
-                            {/* Total Registered Card */}
-                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-lg font-bold text-[#0065a3]">Total Registered</h2>
-                                    <p className="text-xs text-gray-500">Active patients in the system</p>
-                                </div>
-                                <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-[#0065a3] font-bold text-xl">
-                                    {patients.length}
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm sticky top-6">
-                                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                            <div className="lg:col-span-5 flex flex-col gap-6">
+                                {/* Total Registered Card */}
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 flex items-center justify-between">
                                     <div>
-                                        <h2 className="text-lg font-bold text-[#0065a3] mb-1">{editId ? 'Update Patient Details' : 'Register New Patient'}</h2>
-                                        <p className="text-xs text-gray-500">{editId ? 'Modify existing record' : 'Enter details to create a medical record.'}</p>
+                                        <h2 className="text-lg font-bold text-[#0065a3]">Total Registered</h2>
+                                        <p className="text-xs text-gray-500">Active patients in the system</p>
                                     </div>
-                                    {editId && (
-                                        <button onClick={handleCancelEdit} type="button" className="text-xs text-red-500 hover:text-red-700 font-semibold border border-red-200 hover:bg-red-50 transition px-3 py-1 rounded">Cancel Edit</button>
-                                    )}
+                                    <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-[#0065a3] font-bold text-xl">
+                                        {patients.length}
+                                    </div>
                                 </div>
 
-                                <div className="p-6">
-                                    <form className="space-y-5" onSubmit={handleSubmit}>
-                                        {/* Row 1: ID & Date */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">Patient ID</label>
-                                                <input
-                                                    type="text"
-                                                    value="Auto-generated"
-                                                    disabled
-                                                    className="w-full px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-gray-500 text-sm font-medium cursor-not-allowed"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">Date</label>
-                                                <input
-                                                    type="text"
-                                                    value={new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                                    disabled
-                                                    className="w-full px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-gray-500 text-sm font-medium cursor-not-allowed"
-                                                />
-                                            </div>
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm sticky top-6">
+                                    <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                                        <div>
+                                            <h2 className="text-lg font-bold text-[#0065a3] mb-1">{editId ? 'Update Patient Details' : 'Register New Patient'}</h2>
+                                            <p className="text-xs text-gray-500">{editId ? 'Modify existing record' : 'Enter details to create a medical record.'}</p>
                                         </div>
+                                        {editId && (
+                                            <button onClick={handleCancelEdit} type="button" className="text-xs text-red-500 hover:text-red-700 font-semibold border border-red-200 hover:bg-red-50 transition px-3 py-1 rounded">Cancel Edit</button>
+                                        )}
+                                    </div>
 
-
-                                        {/* Full Name */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
-                                                Full Name <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="fullName"
-                                                value={formData.fullName}
-                                                onChange={handleInputChange}
-                                                required
-                                                placeholder="e.g. Johnathan Doe"
-                                                className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
-                                                Doctor Name <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="doctorName"
-                                                value={formData.doctorName}
-                                                onChange={handleInputChange}
-                                                required
-                                                placeholder="e.g. Dr. John Doe"
-                                                className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-2">
-                                                Department
-                                            </label>
-                                            <div className="relative">
-                                                <select
-                                                    name="department"
-                                                    value={formData.department}
-                                                    onChange={handleInputChange}
-                                                    className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all appearance-none bg-white"
-                                                >
-                                                    <option value="">Select Department</option>
-                                                    <option value="Cardiology">Cardiology</option>
-                                                    <option value="Neurology">Neurology</option>
-                                                    <option value="Orthopedics">Orthopedics</option>
-                                                    <option value="Pediatrics">Pediatrics</option>
-                                                    <option value="Dermatology">Dermatology</option>
-                                                    <option value="General Medicine">General Medicine</option>
-                                                </select>
-                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
-                                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                    <div className="p-6">
+                                        <form className="space-y-5" onSubmit={handleSubmit}>
+                                            {/* Row 1: ID & Date */}
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">Patient ID</label>
+                                                    <input
+                                                        type="text"
+                                                        value="Auto-generated"
+                                                        disabled
+                                                        className="w-full px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-gray-500 text-sm font-medium cursor-not-allowed"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">Date</label>
+                                                    <input
+                                                        type="text"
+                                                        value={new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                        disabled
+                                                        className="w-full px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-gray-500 text-sm font-medium cursor-not-allowed"
+                                                    />
                                                 </div>
                                             </div>
-                                        </div>
 
 
-                                        {/* DOB, Age & Gender */}
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {/* Full Name */}
                                             <div>
                                                 <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
-                                                    Date of Birth <span className="text-red-500">*</span>
+                                                    Full Name <span className="text-red-500">*</span>
                                                 </label>
                                                 <input
-                                                    type="date"
-                                                    name="dateOfBirth"
-                                                    value={formData.dateOfBirth}
-                                                    max={new Date().toISOString().split('T')[0]} // Prevents future dates
+                                                    type="text"
+                                                    name="fullName"
+                                                    value={formData.fullName}
                                                     onChange={handleInputChange}
                                                     required
+                                                    placeholder="e.g. Johnathan Doe"
                                                     className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all"
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
-                                                    Age
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    name="age"
-                                                    value={formData.age}
-                                                    disabled
-                                                    placeholder="Automated"
-                                                    className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-500 bg-gray-50 placeholder-gray-400 cursor-not-allowed"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
-                                                    Gender <span className="text-red-500">*</span>
+                                                <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-2">
+                                                    Department
                                                 </label>
                                                 <div className="relative">
                                                     <select
-                                                        name="gender"
-                                                        value={formData.gender}
+                                                        name="department"
+                                                        value={formData.department}
                                                         onChange={handleInputChange}
-                                                        required
                                                         className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all appearance-none bg-white"
                                                     >
-                                                        <option value="" disabled>Select</option>
-                                                        <option value="Male">Male</option>
-                                                        <option value="Female">Female</option>
-                                                        <option value="Other">Other</option>
+                                                        <option value="">Select Department</option>
+                                                        <option value="General Medicine">General Medicine</option>
+                                                        <option value="Internal Medicine">Internal Medicine</option>
+                                                        <option value="Neurology">Neurology</option>
+                                                        <option value="Neurosurgery">Neurosurgery</option>
+                                                        <option value="Psychiatry">Psychiatry</option>
+                                                        <option value="Cardiology">Cardiology</option>
+                                                        <option value="Cardiothoracic Surgery">Cardiothoracic Surgery</option>
+                                                        <option value="Orthopedics">Orthopedics</option>
+                                                        <option value="Rheumatology">Rheumatology</option>
+                                                        <option value="Pediatrics">Pediatrics</option>
+                                                        <option value="Pediatric Surgery">Pediatric Surgery</option>
+                                                        <option value="Gynecology">Gynecology</option>
+                                                        <option value="Obstetrics">Obstetrics</option>
+                                                        <option value="Endocrinology">Endocrinology</option>
+                                                        <option value="Gastroenterology">Gastroenterology</option>
+                                                        <option value="Nephrology">Nephrology</option>
+                                                        <option value="Pulmonology">Pulmonology</option>
+                                                        <option value="Hematology">Hematology</option>
+                                                        <option value="Oncology">Oncology</option>
+                                                        <option value="Ophthalmology">Ophthalmology</option>
+                                                        <option value="ENT">ENT</option>
+                                                        <option value="Dermatology">Dermatology</option>
+                                                        <option value="Dentistry">Dentistry</option>
+                                                        <option value="Emergency Medicine">Emergency Medicine</option>
+                                                        <option value="Anesthesiology">Anesthesiology</option>
                                                     </select>
-                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
                                                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
+                                                    Doctor Name <span className="text-red-500">*</span>
+                                                </label>
+                                                <div className="relative">
+                                                    <select
+                                                        name="doctorName"
+                                                        value={formData.doctorName}
+                                                        onChange={handleInputChange}
+                                                        required
+                                                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all appearance-none"
+                                                        disabled={!formData.department}
+                                                    >
+                                                        <option value="">{formData.department ? 'Select Doctor' : 'Select Department First'}</option>
+                                                        {staffList
+                                                            .filter(s => s.role === 'doctor' && s.department === formData.department && s.isAvailable !== false)
+                                                            .sort((a, b) => {
+                                                                const countA = patients.filter(p => p.doctorName === a.name || (p.assignedDoctor && (p.assignedDoctor.name === a.name || p.assignedDoctor === a._id))).length;
+                                                                const countB = patients.filter(p => p.doctorName === b.name || (p.assignedDoctor && (p.assignedDoctor.name === b.name || p.assignedDoctor === b._id))).length;
+                                                                return countA - countB;
+                                                            })
+                                                            .map(doc => {
+                                                                const count = patients.filter(p => p.doctorName === doc.name || (p.assignedDoctor && (p.assignedDoctor.name === doc.name || p.assignedDoctor === doc._id))).length;
+                                                                return (
+                                                                    <option key={doc._id} value={doc.name}>{doc.name} ({count} {count === 1 ? 'Patient' : 'Patients'})</option>
+                                                                );
+                                                            })}
+                                                    </select>
+                                                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                                                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                        {/* Contact & Address */}
-                                        <div>
-                                            <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
-                                                Contact & Address <span className="text-red-500">*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="contactNumber"
-                                                value={formData.contactNumber}
-                                                onChange={handleInputChange}
-                                                required
-                                                placeholder="Contact Number"
-                                                className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all mb-3"
-                                            />
-                                            <input
-                                                type="email"
-                                                name="email"
-                                                value={formData.email}
-                                                onChange={handleInputChange}
-                                                placeholder="Patient Email"
-                                                className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all mb-3"
-                                            />
-                                            <textarea
-                                                name="address"
-                                                value={formData.address}
-                                                onChange={handleInputChange}
-                                                rows="3"
-                                                placeholder="Full Address"
-                                                className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all resize-none"
-                                            ></textarea>
-                                        </div>
 
-                                        <button type="submit" className="w-full bg-[#0065a3] hover:bg-[#005080] text-white font-semibold py-3 rounded-md transition-all shadow-md active:scale-[0.98]">
-                                            {editId ? 'Update Medical Record' : 'Create Medical Record'}
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
+                                            {/* DOB, Age & Gender */}
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div>
+                                                    <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
+                                                        Date of Birth <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        name="dateOfBirth"
+                                                        value={formData.dateOfBirth}
+                                                        max={new Date().toISOString().split('T')[0]} // Prevents future dates
+                                                        onChange={handleInputChange}
+                                                        required
+                                                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
+                                                        Age
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        name="age"
+                                                        value={formData.age}
+                                                        disabled
+                                                        placeholder="Automated"
+                                                        className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-500 bg-gray-50 placeholder-gray-400 cursor-not-allowed"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
+                                                        Gender <span className="text-red-500">*</span>
+                                                    </label>
+                                                    <div className="relative">
+                                                        <select
+                                                            name="gender"
+                                                            value={formData.gender}
+                                                            onChange={handleInputChange}
+                                                            required
+                                                            className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all appearance-none bg-white"
+                                                        >
+                                                            <option value="" disabled>Select</option>
+                                                            <option value="Male">Male</option>
+                                                            <option value="Female">Female</option>
+                                                            <option value="Other">Other</option>
+                                                        </select>
+                                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                        {/* Patient List (Right) */}
-                        <div className="lg:col-span-7">
-                            <div className="bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col h-full max-h-[800px]">
-                                <div className="p-5 border-b border-gray-100 flex justify-between items-center">
-                                    <h2 className="text-lg font-bold text-[#0065a3]">Patient Directory</h2>
-                                    <div className="flex gap-2">
-                                        <button className="p-2 text-gray-400 hover:text-[#0065a3] bg-gray-50 rounded-md">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-                                            </svg>
-                                        </button>
-                                        <button className="p-2 text-gray-400 hover:text-[#0065a3] bg-gray-50 rounded-md">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                                            </svg>
-                                        </button>
+                                            {/* Contact & Address */}
+                                            <div>
+                                                <label className="block text-xs font-bold text-[#0065a3] uppercase tracking-wide mb-1.5">
+                                                    Contact & Address <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    name="contactNumber"
+                                                    value={formData.contactNumber}
+                                                    onChange={handleInputChange}
+                                                    required
+                                                    placeholder="Contact Number"
+                                                    className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all mb-3"
+                                                />
+                                                <input
+                                                    type="email"
+                                                    name="email"
+                                                    value={formData.email}
+                                                    onChange={handleInputChange}
+                                                    placeholder="Patient Email"
+                                                    className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all mb-3"
+                                                />
+                                                <textarea
+                                                    name="address"
+                                                    value={formData.address}
+                                                    onChange={handleInputChange}
+                                                    rows="3"
+                                                    placeholder="Full Address"
+                                                    className="w-full px-4 py-2.5 rounded-md border border-gray-200 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all resize-none"
+                                                ></textarea>
+                                            </div>
+
+                                            <button type="submit" className="w-full bg-[#0065a3] hover:bg-[#005080] text-white font-semibold py-3 rounded-md transition-all shadow-md active:scale-[0.98]">
+                                                {editId ? 'Update Medical Record' : 'Create Medical Record'}
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="overflow-y-auto flex-1">
-                                    <table className="w-full text-left">
-                                        <thead className="sticky top-0 bg-gray-50/90 backdrop-blur-sm z-10">
-                                            <tr className="border-b border-gray-100">
-                                                <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
-                                                <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
-                                                <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Age/Sex</th>
-                                                <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
-                                                <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-50">
-                                            {loading ? (
-                                                <tr>
-                                                    <td colSpan="5" className="py-8 text-center text-gray-500">Loading patients...</td>
+                            {/* Patient List (Right) */}
+                            <div className="lg:col-span-7">
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col h-full max-h-[800px]">
+                                    <div className="p-5 border-b border-gray-100">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h2 className="text-lg font-bold text-[#0065a3]">Patient Directory</h2>
+                                            <span className="text-xs text-gray-400">{patients.filter(p => {
+                                                const matchSearch = p.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                    p.medicalRecordNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                    p.contactNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+                                                const matchStatus = filterStatus === 'all' || p.status === filterStatus || p.admissionStatus === filterStatus;
+                                                return matchSearch && matchStatus;
+                                            }).length} records
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-1">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search by name, MRN, contact..."
+                                                    value={searchTerm}
+                                                    onChange={e => setSearchTerm(e.target.value)}
+                                                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] transition-all"
+                                                />
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                </svg>
+                                            </div>
+                                            <select
+                                                value={filterStatus}
+                                                onChange={e => setFilterStatus(e.target.value)}
+                                                className="px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0065a3]/20 focus:border-[#0065a3] bg-white text-gray-600"
+                                            >
+                                                <option value="all">All Status</option>
+                                                <option value="Pending">Pending</option>
+                                                <option value="Completed">Completed</option>
+                                                <option value="In-Patient">In-Patient</option>
+                                                <option value="Out-Patient">Out-Patient</option>
+                                                <option value="Discharged">Discharged</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="overflow-y-auto flex-1">
+                                        <table className="w-full text-left">
+                                            <thead className="sticky top-0 bg-gray-50/90 backdrop-blur-sm z-10">
+                                                <tr className="border-b border-gray-100">
+                                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">ID</th>
+                                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Age/Sex</th>
+                                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
+                                                    <th className="py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                                                 </tr>
-                                            ) : (
-                                                patients.map((patient) => (
-                                                    <tr key={patient.medicalRecordNumber || patient._id} className="hover:bg-gray-50/50 transition-colors group">
-                                                        <td className="py-3 px-4 text-xs font-bold text-[#0065a3]">{patient.medicalRecordNumber}</td>
-                                                        <td className="py-3 px-4 text-sm font-medium text-slate-700">{patient.fullName}</td>
-                                                        <td className="py-3 px-4 text-sm text-gray-500">{calculateAge(patient.dateOfBirth)} / {patient.gender === 'Male' ? 'M' : patient.gender === 'Female' ? 'F' : 'O'}</td>
-                                                        <td className="py-3 px-4 text-xs text-gray-500 font-mono">{patient.contactNumber}</td>
-                                                        <td className="py-3 px-4 text-right">
-                                                            <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <button onClick={() => handleView(patient)} className="text-xs font-semibold text-[#0065a3] hover:underline">View</button>
-                                                                <span className="text-gray-300">|</span>
-                                                                <button onClick={() => handleEdit(patient)} className="text-xs font-semibold text-gray-500 hover:text-[#0065a3]">Edit</button>
-                                                                <span className="text-gray-300">|</span>
-                                                                <button onClick={() => handleDelete(patient._id)} className="text-xs font-semibold text-red-500 hover:text-red-700">Delete</button>
-                                                            </div>
-                                                        </td>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {loading ? (
+                                                    <tr>
+                                                        <td colSpan="5" className="py-8 text-center text-gray-500">Loading patients...</td>
                                                     </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
+                                                ) : (
+                                                    patients
+                                                        .filter(p => {
+                                                            const matchSearch = p.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                                p.medicalRecordNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                                p.contactNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+                                                            const matchStatus = filterStatus === 'all' || p.status === filterStatus || p.admissionStatus === filterStatus;
+                                                            return matchSearch && matchStatus;
+                                                        })
+                                                        .map((patient) => (
+                                                            <tr key={patient.medicalRecordNumber || patient._id} className="hover:bg-gray-50/50 transition-colors group">
+                                                                <td className="py-3 px-4 text-xs font-bold text-[#0065a3]">{patient.medicalRecordNumber}</td>
+                                                                <td className="py-3 px-4 text-sm font-medium text-slate-700">{patient.fullName}</td>
+                                                                <td className="py-3 px-4 text-sm text-gray-500">{calculateAge(patient.dateOfBirth)} / {patient.gender === 'Male' ? 'M' : patient.gender === 'Female' ? 'F' : 'O'}</td>
+                                                                <td className="py-3 px-4 text-xs text-gray-500 font-mono">{patient.contactNumber}</td>
+                                                                <td className="py-3 px-4 text-right">
+                                                                    <div className="flex items-center justify-end gap-2">
+                                                                        <button onClick={() => handleView(patient)} className="text-xs font-semibold text-[#0065a3] hover:underline">View</button>
+                                                                        <span className="text-gray-300">|</span>
+                                                                        <button onClick={() => handleEdit(patient)} className="text-xs font-semibold text-gray-500 hover:text-[#0065a3]">Edit</button>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                    </div>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm flex flex-col min-h-[500px]">
+                            <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+                                <h2 className="text-lg font-bold text-[#0065a3]">Doctor Directory</h2>
+                                <span className="px-2.5 py-1 bg-green-50 text-green-700 text-xs font-bold rounded-full border border-green-200">
+                                    {staffList.filter(s => s.role === 'doctor' && s.isAvailable !== false).length} Available
+                                </span>
+                            </div>
+                            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {staffList.filter(s => s.role === 'doctor').length === 0 ? (
+                                    <div className="col-span-full py-8 text-center text-gray-500">No doctors available.</div>
+                                ) : (
+                                    staffList.filter(s => s.role === 'doctor').map(doc => (
+                                        <div key={doc._id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow relative overflow-hidden group bg-gray-50/30">
+                                            <div className="absolute top-0 right-0 w-2 h-full bg-[#0065a3] opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                            <div className="flex items-start gap-4 mb-4">
+                                                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-[#0065a3] font-bold text-lg flex-shrink-0">
+                                                    {doc.name.charAt(0)}
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-bold text-gray-800 text-sm">{doc.name}</h3>
+                                                    <p className="text-xs text-[#0065a3] font-medium uppercase tracking-wider mt-0.5">{doc.department || 'General'}</p>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2 text-sm text-gray-600">
+                                                <div className="flex items-center gap-2">
+                                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
+                                                    <span>{doc.contactNumber || 'No contact provided'}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                                                    <span className="truncate">{doc.email}</span>
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 pt-4 border-t border-gray-100 flex justify-between items-center">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${doc.isAvailable !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                                    {doc.isAvailable !== false ? 'Available' : 'Not Available'}
+                                                </span>
+                                                <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md">
+                                                    {patients.filter(p => p.doctorName === doc.name || (p.assignedDoctor && (p.assignedDoctor.name === doc.name || p.assignedDoctor === doc._id))).length} Patients
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             </main>
 

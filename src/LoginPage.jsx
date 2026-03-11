@@ -29,13 +29,12 @@ const LoginPage = ({ onLogin }) => {
                     className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-50"
                 />
                 <div className="relative z-10 text-center px-10">
-                    <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/30 shadow-xl">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="white" className="w-10 h-10">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
+                    <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/30 shadow-xl">
+                        <span className="text-white font-black text-2xl tracking-tight">KMCH</span>
                     </div>
-                    <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">MediVault</h1>
-                    <p className="text-blue-100 text-lg">Secure Digital Asset Management for Modern Healthcare</p>
+                    <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">KMCH Hospital</h1>
+                    <p className="text-blue-100 text-lg">Kovai Medical Center & Hospital</p>
+                    <p className="text-blue-200 text-sm mt-2">Digital Asset Management System</p>
                 </div>
             </div>
 
@@ -69,7 +68,7 @@ const LoginPage = ({ onLogin }) => {
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="name@hospital.com"
+                                placeholder="name@kmchhospital.com"
                                 className="block w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm focus:ring-[#0065a3] focus:border-[#0065a3] text-sm transition-colors placeholder-gray-400"
                             />
                         </div>
@@ -134,7 +133,7 @@ const LoginPage = ({ onLogin }) => {
 
 
                     <div className="mt-8 text-center text-xs text-gray-400">
-                        &copy; 2026 MediVault Healthcare Systems. All rights reserved.
+                        &copy; 2026 KMCH Hospital – Kovai Medical Center & Hospital. All rights reserved.
                     </div>
                 </div>
             </div>

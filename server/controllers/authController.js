@@ -79,6 +79,7 @@ const loginUser = async (req, res) => {
                 email: user.email,
                 role: user.role,
                 department: user.department,
+                isAvailable: user.isAvailable,
                 token: generateToken(user._id),
             });
         } else {
@@ -89,4 +90,32 @@ const loginUser = async (req, res) => {
     }
 };
 
-export { registerUser, loginUser };
+// @desc    Update user availability
+// @route   PUT /api/auth/availability
+// @access  Private (Needs to be logged in)
+const updateAvailability = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+
+        if (user) {
+            user.isAvailable = req.body.isAvailable;
+            const updatedUser = await user.save();
+
+            res.json({
+                _id: updatedUser._id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                role: updatedUser.role,
+                department: updatedUser.department,
+                isAvailable: updatedUser.isAvailable,
+                token: generateToken(updatedUser._id), // Optional, depends on your auth strategy
+            });
+        } else {
+            res.status(404).json({ message: 'User not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+export { registerUser, loginUser, updateAvailability };

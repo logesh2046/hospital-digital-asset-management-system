@@ -7,7 +7,7 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true },
     role: {
         type: String,
-        enum: ['admin', 'doctor', 'technician', 'receptionist', 'staff', 'patient'],
+        enum: ['admin', 'doctor', 'technician', 'receptionist', 'staff', 'patient', 'patient_admin'],
         default: 'staff'
     },
     department: { type: String }, // For staff (e.g., Radiology, Pathology, Cardiology)
@@ -22,6 +22,7 @@ const userSchema = new mongoose.Schema({
 
     // Account Status
     isActive: { type: Boolean, default: true },
+    isAvailable: { type: Boolean, default: true },
     lastLogin: { type: Date }
 }, {
     timestamps: true

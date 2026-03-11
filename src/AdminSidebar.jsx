@@ -22,12 +22,13 @@ export default function AdminSidebar({ activePage }) {
     return (
         <aside className="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 fixed h-full z-20">
             <div className="p-6 border-b border-gray-100 flex items-center gap-3">
-                <div className="bg-[#0065a3] text-white p-2 rounded-lg">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+                <div className="bg-[#0065a3] text-white p-2 rounded-lg flex items-center justify-center w-10 h-10">
+                    <span className="font-black text-xs tracking-tight">KMCH</span>
                 </div>
-                <h1 className="text-xl font-bold text-slate-800 tracking-tight">
-                    Admin<span className="text-[#0065a3]">Monitor</span>
-                </h1>
+                <div className="flex flex-col">
+                    <h1 className="text-sm font-black text-slate-800 tracking-tight leading-tight">KMCH Hospital</h1>
+                    <span className="text-[10px] text-[#0065a3] font-semibold uppercase tracking-widest">Admin Panel</span>
+                </div>
             </div>
 
             <nav className="flex-1 overflow-y-auto py-6 px-4">

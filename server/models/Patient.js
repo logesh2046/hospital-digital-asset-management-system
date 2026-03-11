@@ -30,10 +30,21 @@ const patientSchema = new mongoose.Schema({
     }, // Primary care physician assigned to this patient
     doctorName: { type: String }, // Raw name for quick display
 
+    assignedTechnician: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }, // Technician assigned to this patient
+    technicianName: { type: String }, // Raw name for quick display
+    requestedReport: { type: String }, // Type of report requested (e.g. MRI Scan, Blood Test)
+
     nextVisitDate: { type: Date },
+
+    // created by tracking
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
     // Admission & Status
     admissionStatus: { type: String, enum: ['In-Patient', 'Out-Patient', 'Discharged'], default: 'Out-Patient' },
+    status: { type: String, enum: ['Pending', 'Completed'], default: 'Pending' },
     lastVisit: { type: Date }
 }, {
     timestamps: true
