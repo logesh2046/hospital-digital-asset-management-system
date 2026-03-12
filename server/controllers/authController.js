@@ -43,6 +43,17 @@ const registerUser = async (req, res) => {
                     patient.email = user.email;
                 }
                 await patient.save();
+            } else {
+                // If patient record doesn't exist in hospital, create a placeholder one so their dashboard works
+                const newPatient = new Patient({
+                    fullName: user.name,
+                    email: user.email,
+                    dateOfBirth: new Date('1990-01-01'), // Default placeholder
+                    gender: 'Other',
+                    contactNumber: '0000000000',
+                    user: user._id
+                });
+                await newPatient.save();
             }
         }
 
