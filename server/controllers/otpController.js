@@ -58,17 +58,17 @@ export const sendOTP = async (req, res) => {
 
         console.log(`[SIMULATED EMAIL/NATIVE CONSOLE] OTP for ${email} is: ${otp}`);
 
-        try {
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: email,
-                subject: 'HDAMS - Secure Report Access OTP',
-                text: `Your OTP for accessing the report "${report.title}" is ${otp}. It is valid for 5 minutes.`
-            });
+        // Do not await transporter.sendMail to avoid hanging the client if SMTP is slow/blocked
+        transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'HDAMS - Secure Report Access OTP',
+            text: `Your OTP for accessing the report "${report.title}" is ${otp}. It is valid for 5 minutes.`
+        }).then(() => {
             console.log('Email dispatched successfully via nodemailer!');
-        } catch (mailError) {
+        }).catch((mailError) => {
             console.log('Nodemailer configuration warning (invalid auth?). OTP simulated in console instead.', mailError.message);
-        }
+        });
 
         res.status(200).json({
             message: 'OTP sent to email.',
