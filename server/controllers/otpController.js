@@ -58,17 +58,20 @@ export const sendOTP = async (req, res) => {
 
         console.log(`[SIMULATED EMAIL/NATIVE CONSOLE] OTP for ${email} is: ${otp}`);
 
-        // Do not await transporter.sendMail to avoid hanging the client if SMTP is slow/blocked
-        transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'HDAMS - Secure Report Access OTP',
-            text: `Your OTP for accessing the report "${report.title}" is ${otp}. It is valid for 5 minutes.`
-        }).then(() => {
+        try {
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'HDAMS - Secure Report Access OTP',
+                text: `Your OTP for accessing the report "${report.title}" is ${otp}. It is valid for 5 minutes.`
+            });
             console.log('Email dispatched successfully via nodemailer!');
-        }).catch((mailError) => {
+        } catch (mailError) {
             console.log('Nodemailer configuration warning (invalid auth?). OTP simulated in console instead.', mailError.message);
-        });
+            // Optionally, we could return a 500 error here, but we can also just log it.
+            // But if the user is complaining about not receiving OTP, we should probably return an error to the frontend.
+            return res.status(500).json({ message: `Failed to send email: ${mailError.message}` });
+        }
 
         res.status(200).json({
             message: 'OTP sent to email.',
