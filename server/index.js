@@ -57,6 +57,9 @@ app.use(limiter);
 
 app.use(express.json());
 
+// Render Health Check
+app.get('/healthz', (req, res) => res.status(200).send('OK'));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
