@@ -59,17 +59,27 @@ export const sendOTP = async (req, res) => {
         console.log(`[SIMULATED EMAIL/NATIVE CONSOLE] OTP for ${email} is: ${otp}`);
 
         try {
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: email,
-                subject: 'HDAMS - Secure Report Access OTP',
-                text: `Your OTP for accessing the report "${report.title}" is ${otp}. It is valid for 5 minutes.`
-            });
-            console.log('Email dispatched successfully via nodemailer!');
+            if (process.env.GOOGLE_SCRIPT_URL) {
+                // Bypass Render's SMTP port block by using a free Google Apps Script Web App (HTTPS)
+                const axios = (await import('axios')).default;
+                await axios.post(process.env.GOOGLE_SCRIPT_URL, JSON.stringify({
+                    to: email,
+                    subject: 'HDAMS - Secure Report Access OTP',
+                    text: `Your OTP for accessing the report "${report.title}" is ${otp}. It is valid for 5 minutes.`
+                }), { headers: { 'Content-Type': 'text/plain;charset=utf-8' } }); // Google apps script prefers text/plain for postData
+                console.log('Email dispatched successfully via Google Apps Script API!');
+            } else {
+                await transporter.sendMail({
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: 'HDAMS - Secure Report Access OTP',
+                    text: `Your OTP for accessing the report "${report.title}" is ${otp}. It is valid for 5 minutes.`
+                });
+                console.log('Email dispatched successfully via nodemailer!');
+            }
         } catch (mailError) {
-            console.log('Nodemailer configuration warning (invalid auth?). OTP simulated in console instead.', mailError.message);
-            // Optionally, we could return a 500 error here, but we can also just log it.
-            // But if the user is complaining about not receiving OTP, we should probably return an error to the frontend.
+            console.log('Email sending failed.', mailError.message);
+            // Return a 500 error here so the frontend knows the email failed to send
             return res.status(500).json({ message: `Failed to send email: ${mailError.message}` });
         }
 
