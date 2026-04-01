@@ -57,9 +57,6 @@ app.use(limiter);
 
 app.use(express.json());
 
-// Render Health Check
-app.get('/healthz', (req, res) => res.status(200).send('OK'));
-
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
@@ -67,6 +64,15 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/reports', secureAccessRoutes); // Secure access routes
 app.use('/api/share', shareRoutes); // New share routes
+
+// Cloudinary URL Redirector (to maintain compatibility with frontend URL format logic)
+app.get('/api/redirect', (req, res) => {
+    if (req.query.url) {
+        return res.redirect(req.query.url);
+    }
+    return res.status(404).json({ message: 'URL not provided' });
+});
+
 app.use('/api/prescriptions', prescriptionRoutes); // Blueprint Strictly Requested
 app.use('/api/otp', otpRoutes);
 app.use('/api/deleted-patients', deletedPatientRoutes);

@@ -40,7 +40,7 @@ const uploadReport = async (req, res) => {
                 assignedDoctor: assignedDoctorId || req.user.role === 'doctor' ? req.user._id : null,
                 title,
                 description,
-                filePath: file.path,
+                filePath: file.path.startsWith('http') ? `api/redirect?url=${encodeURIComponent(file.path)}` : file.path,
                 fileType: file.mimetype,
                 fileSize: file.size,
                 fileCategory: fileCategory || 'Other',

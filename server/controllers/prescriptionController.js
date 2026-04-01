@@ -29,7 +29,7 @@ const createPrescription = async (req, res) => {
             medicalNotes,
             medicines: JSON.parse(medicines || '[]'), // Assuming medicines are sent as JSON string
             nextVisitDate,
-            filePath: file ? file.path : undefined
+            filePath: file ? (file.path.startsWith('http') ? `api/redirect?url=${encodeURIComponent(file.path)}` : file.path) : undefined
         });
 
         await prescription.save();

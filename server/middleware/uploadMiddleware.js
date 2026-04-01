@@ -1,13 +1,23 @@
 import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import path from 'path';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const storage = multer.diskStorage({
-    destination(req, file, cb) {
-        cb(null, 'server/uploads/');
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'demo',
+    api_key: process.env.CLOUDINARY_API_KEY || 'demo',
+    api_secret: process.env.CLOUDINARY_API_SECRET || 'demo'
+});
+
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'hdams_uploads',
+        resource_type: 'auto', // Important for pdf files
+        public_id: (req, file) => `${file.fieldname}-${Date.now()}`
     },
-    filename(req, file, cb) {
-        cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
-    }
 });
 
 const checkFileType = (file, cb) => {
@@ -23,7 +33,7 @@ const checkFileType = (file, cb) => {
 }
 
 const upload = multer({
-    storage,
+    storage: storage,
     limits: { fileSize: 10000000 }, // 10MB limit
     fileFilter: function (req, file, cb) {
         checkFileType(file, cb);
