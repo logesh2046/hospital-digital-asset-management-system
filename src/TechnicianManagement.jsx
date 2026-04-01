@@ -105,7 +105,8 @@ export default function TechnicianManagement() {
                     'Authorization': `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    technicianName: assignedTechnician,
+                    technicianId: assignedTechnician,
+                    technicianName: availableTechnicians.find(t => t._id === assignedTechnician)?.name,
                     requestedReport: requestedReport
                 })
             });
@@ -354,7 +355,7 @@ export default function TechnicianManagement() {
                                                             .map(tech => {
                                                                 const count = patients.filter(p => p.technicianName === tech.name || (p.assignedTechnician && p.assignedTechnician === tech._id)).length;
                                                                 return (
-                                                                    <option key={tech._id} value={tech.name}>
+                                                                    <option key={tech._id} value={tech._id}>
                                                                         {tech.name} ({count} {count === 1 ? 'Patient' : 'Patients'} Assigned)
                                                                     </option>
                                                                 );

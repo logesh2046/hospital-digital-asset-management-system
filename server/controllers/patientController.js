@@ -11,7 +11,13 @@ const getPatients = async (req, res) => {
         if (req.user.role === 'doctor') {
             patients = await Patient.find({ assignedDoctor: req.user._id });
         } else if (req.user.role === 'technician') {
-            patients = await Patient.find({ assignedTechnician: req.user._id });
+            // Fall back to technicianName string match in case assignedTechnician ObjectId was not set
+            patients = await Patient.find({
+                $or: [
+                    { assignedTechnician: req.user._id },
+                    { technicianName: { $regex: new RegExp(`^${req.user.name.trim()}$`, 'i') } }
+                ]
+            });
         } else if (req.user.role === 'admin' || req.user.role === 'receptionist' || req.user.role === 'staff' || req.user.role === 'patient_admin') {
             patients = await Patient.find({}).populate('createdBy', 'name email');
         } else {
@@ -178,17 +184,23 @@ const updatePatient = async (req, res) => {
         if (doctorName !== undefined) patient.doctorName = doctorName;
         if (nextVisitDate !== undefined) patient.nextVisitDate = nextVisitDate;
 
-        let technicianId = patient.assignedTechnician;
-        if (technicianName) {
+        let technicianIdResolved = patient.assignedTechnician;
+        if (req.body.technicianId) {
+            technicianIdResolved = req.body.technicianId;
+        } else if (technicianName) {
             const technician = await User.findOne({
                 role: 'technician',
                 name: { $regex: new RegExp(`^${technicianName.trim()}$`, 'i') }
             });
             if (technician) {
-                technicianId = technician._id;
+                technicianIdResolved = technician._id;
+                console.log(`[Technician Assignment] Found technician '${technician.name}' (ID: ${technician._id}) for patient ${patient.fullName}`);
+            } else {
+                console.warn(`[Technician Assignment] WARNING: Technician with name '${technicianName}' not found in DB. Storing name only.`);
+                technicianIdResolved = null;
             }
         }
-        patient.assignedTechnician = technicianId;
+        patient.assignedTechnician = technicianIdResolved;
         if (technicianName !== undefined) patient.technicianName = technicianName;
         if (requestedReport !== undefined) patient.requestedReport = requestedReport;
 
