@@ -73,34 +73,42 @@ export default function TechnicianDashboard() {
     const [selectedFile, setSelectedFile] = useState(null);
     const [showPatientDropdown, setShowPatientDropdown] = useState(false);
 
-    // Fetch Data
+    // Fetch Data — re-run whenever user is set (handles reload where user loads async)
     useEffect(() => {
+        if (!user) return; // wait until AuthContext has loaded the user
         const fetchData = async () => {
             try {
                 const token = localStorage.getItem('token');
                 const headers = { 'Authorization': `Bearer ${token}` };
 
-                // Fetch Patients
+                // Fetch Patients (backend already scopes to this technician's assignments)
                 const patientsRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/patients`, { headers });
                 if (patientsRes.ok) {
                     const patientsData = await patientsRes.json();
                     setPatients(patientsData);
+                } else {
+                    const err = await patientsRes.json().catch(() => ({}));
+                    console.error('Failed to fetch patients:', patientsRes.status, err.message);
                 }
 
-                // Fetch Reports
+                // Fetch Reports (backend scopes to this technician's assigned patients)
                 const reportsRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/reports`, { headers });
                 if (reportsRes.ok) {
                     const reportsData = await reportsRes.json();
                     setReports(reportsData);
+                } else {
+                    const err = await reportsRes.json().catch(() => ({}));
+                    console.error('Failed to fetch reports:', reportsRes.status, err.message);
                 }
             } catch (error) {
-                console.error("Error fetching dashboard data:", error);
+                console.error('Error fetching dashboard data:', error);
             } finally {
                 setLoading(false);
             }
         };
         fetchData();
-    }, []);
+    }, [user]); // re-fetch when user is available (fixes blank screen on reload)
+
 
     // Handlers
     const handleLogout = () => {
@@ -185,8 +193,23 @@ export default function TechnicianDashboard() {
     };
 
     // Derived State for UI
-    const patientsNeedingReports = patients.filter(p => !reports.some(r => (r.patient?._id || r.patient) === p._id));
+    // All patients assigned to this technician (by name or ID)
+    // user._id comes from new sessions; user.id is the fallback for old stored sessions
+    const myUserId = user?._id || user?.id;
+    const myAssignedPatients = patients.filter(p =>
+        p.technicianName === user?.name ||
+        (p.assignedTechnician && (
+            p.assignedTechnician === myUserId ||
+            p.assignedTechnician?._id === myUserId
+        ))
+    );
 
+    // Assigned patients who still need a report uploaded
+    const patientsNeedingReports = myAssignedPatients.filter(p =>
+        !reports.some(r => (r.patient?._id || r.patient) === p._id)
+    );
+
+    // Search inside only the technician's patients
     const filteredPatients = patientsNeedingReports.filter(p =>
         p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.medicalRecordNumber.toLowerCase().includes(searchTerm.toLowerCase())
@@ -198,7 +221,7 @@ export default function TechnicianDashboard() {
         return reportDate.toDateString() === today.toDateString();
     }).length;
 
-    const myUploadsCount = reports.filter(r => r.uploadedBy === user?._id).length; // Assuming user object has _id shorthand or similar from auth context, otherwise might need check
+    const myUploadsCount = reports.filter(r => r.uploadedBy === user?._id).length;
 
 
 
@@ -282,7 +305,7 @@ export default function TechnicianDashboard() {
 
                         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Active Patients</p>
-                            <h3 className="text-3xl font-bold text-slate-800">{patients.length}</h3>
+                            <h3 className="text-3xl font-bold text-slate-800">{myAssignedPatients.length}</h3>
                         </div>
                     </div>
 

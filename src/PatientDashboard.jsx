@@ -61,9 +61,20 @@ export default function PatientDashboard() {
     };
 
     const openReport = (filePath, action) => {
-        const url = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/${(filePath || '').replace(/\\/g, '/').replace(/^server\//, '')}`;
+        let url = filePath;
+        // Make sure we have a fully qualified URL
+        if (!url.startsWith('http')) {
+            let formattedPath = (filePath || '').replace(/\\/g, '/').replace(/^server\//, '');
+            if (!formattedPath.startsWith('/')) {
+                formattedPath = '/' + formattedPath;
+            }
+            url = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${formattedPath}`;
+        }
+        
         if (action === 'view') {
-            window.open(url, '_blank');
+            // Using window.location.href ensures maximum browser compatibility and bypasses all pop-up blockers 
+            // since the redirect happens seamlessly in the same tab. (Critical for async OTP flows)
+            window.location.href = url;
         } else {
             const link = document.createElement('a');
             link.href = url;

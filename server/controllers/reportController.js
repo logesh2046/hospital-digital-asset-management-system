@@ -132,18 +132,29 @@ const viewProtectedReport = async (req, res) => {
 const getAllReports = async (req, res) => {
     try {
         let query = {};
+
         if (req.user.role === 'doctor') {
-            // Find all patients assigned to this doctor
+            // Doctors see reports for their assigned patients only
             const assignedPatients = await Patient.find({ assignedDoctor: req.user._id }).select('_id');
             const patientIds = assignedPatients.map(p => p._id);
-
             query = {
                 $or: [
                     { assignedDoctor: req.user._id },
                     { patient: { $in: patientIds } }
                 ]
             };
+        } else if (req.user.role === 'technician') {
+            // Technicians see reports only for patients assigned to them
+            const assignedPatients = await Patient.find({
+                $or: [
+                    { technicianName: req.user.name },
+                    { assignedTechnician: req.user._id }
+                ]
+            }).select('_id');
+            const patientIds = assignedPatients.map(p => p._id);
+            query = { patient: { $in: patientIds } };
         }
+        // admin / staff / receptionist: no filter → all reports
 
         const reports = await Report.find(query)
             .populate('patient', 'fullName medicalRecordNumber')

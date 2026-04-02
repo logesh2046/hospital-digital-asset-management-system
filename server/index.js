@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { v2 as cloudinary } from 'cloudinary';
 import connectDB from './config/db.js';
 
 import authRoutes from './routes/authRoutes.js';
@@ -65,12 +66,62 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/reports', secureAccessRoutes); // Secure access routes
 app.use('/api/share', shareRoutes); // New share routes
 
-// Cloudinary URL Redirector (to maintain compatibility with frontend URL format logic)
-app.get('/api/redirect', (req, res) => {
-    if (req.query.url) {
+// Cloudinary URL Redirector and Proxy (bypasses Cloudinary inline PDF restrictions)
+app.get('/api/redirect', async (req, res) => {
+    if (!req.query.url) {
+        return res.status(404).json({ message: 'URL not provided' });
+    }
+
+    try {
+        const targetUrl = req.query.url;
+
+        // If it's a Cloudinary PDF, we proxy it to allow inline viewing and bypass strict 401s
+        if (targetUrl.includes('cloudinary.com') && targetUrl.toLowerCase().endsWith('.pdf')) {
+            // Configure Cloudinary just in case it wasn't
+            cloudinary.config({
+                cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+                api_key: process.env.CLOUDINARY_API_KEY,
+                api_secret: process.env.CLOUDINARY_API_SECRET,
+                secure: true
+            });
+
+            // Extract public_id from URL (e.g. upload/v1234/folder/file.pdf -> folder/file)
+            let fetchUrl = targetUrl;
+            const publicIdMatch = targetUrl.match(/upload\/(?:v\d+\/)?(.+?)\.pdf$/i);
+            
+            if (publicIdMatch) {
+                const publicId = publicIdMatch[1];
+                // Generate a signed URL for an image attachment (Cloudinary classifies PDFs as image/raw)
+                fetchUrl = cloudinary.url(`${publicId}.pdf`, {
+                    resource_type: 'image', // try image, as auto usually defaults here for pdfs
+                    type: 'upload',
+                    sign_url: true,
+                    flags: 'attachment'
+                });
+            } else if (!fetchUrl.includes('fl_attachment')) {
+                fetchUrl = fetchUrl.replace('/upload/', '/upload/fl_attachment/');
+            }
+
+            const axios = (await import('axios')).default;
+            const response = await axios({
+                method: 'get',
+                url: fetchUrl,
+                responseType: 'stream'
+            });
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', 'inline; filename="document.pdf"');
+            
+            return response.data.pipe(res);
+        }
+
+        // Default behavior for other URLs
+        return res.redirect(targetUrl);
+    } catch (error) {
+        console.error('Redirect proxy error:', error.message);
+        // Fallback to direct redirect if proxy fetching fails
         return res.redirect(req.query.url);
     }
-    return res.status(404).json({ message: 'URL not provided' });
 });
 
 app.use('/api/prescriptions', prescriptionRoutes); // Blueprint Strictly Requested

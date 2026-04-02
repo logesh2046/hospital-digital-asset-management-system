@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+const ALLOWED_ROLES = ['admin', 'staff', 'receptionist', 'doctor', 'technician'];
+
 export default function TechnicianManagement() {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
@@ -10,6 +12,33 @@ export default function TechnicianManagement() {
         logout();
         navigate('/login');
     };
+
+    // ── Role Guard ────────────────────────────────────────────────────────────
+    if (user && !ALLOWED_ROLES.includes(user.role)) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-[#f3f4f6]">
+                <div className="bg-white rounded-xl border border-red-200 shadow-lg p-10 max-w-md w-full text-center flex flex-col items-center gap-4">
+                    <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+                        <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-red-600">Access Denied</h2>
+                    <p className="text-sm text-gray-500">
+                        Your account role <span className="font-semibold text-red-500 capitalize">({user.role})</span> is not authorized to access the Technician Management page.
+                    </p>
+                    <p className="text-xs text-gray-400">Please contact your administrator if you believe this is a mistake.</p>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="mt-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
+                    >
+                        Back to Dashboard
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     const [patients, setPatients] = useState([]);
     const [staffList, setStaffList] = useState([]);
@@ -161,6 +190,12 @@ export default function TechnicianManagement() {
                         <li>
                             <button onClick={() => setCurrentView('assignment')} className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${currentView === 'assignment' ? 'text-white bg-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}>
                                 Technician Assignment
+                            </button>
+                        </li>
+                        <li>
+                            <button onClick={() => setCurrentView('unassigned')} className={`w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md transition-colors ${currentView === 'unassigned' ? 'text-white bg-orange-500 shadow-sm' : 'text-gray-500 hover:text-gray-900 hover:bg-orange-50 hover:text-orange-600'}`}>
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${currentView === 'unassigned' ? 'bg-orange-200' : 'bg-orange-400'}`}></span>
+                                Unassigned Report
                             </button>
                         </li>
                         <li>
@@ -419,6 +454,117 @@ export default function TechnicianManagement() {
                             </div>
                         </div>
                     )}
+
+                    {/* Unassigned Technicians Report */}
+                    {currentView === 'unassigned' && (() => {
+                        const allTechnicians = staffList.filter(s => s.role === 'technician');
+                        const unassignedTechnicians = allTechnicians.filter(tech => {
+                            const count = patients.filter(p =>
+                                p.technicianName === tech.name ||
+                                (p.assignedTechnician && p.assignedTechnician === tech._id)
+                            ).length;
+                            return count === 0;
+                        });
+
+                        return (
+                            <div className="mb-8">
+                                <div className="flex items-center justify-between mb-5">
+                                    <h2 className="text-lg font-bold text-slate-700 flex items-center gap-2">
+                                        <span className="bg-orange-500 text-white px-2.5 py-1 rounded text-sm uppercase tracking-wider">Not Assigned to Any Patient</span>
+                                    </h2>
+                                    <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-full">
+                                        {unassignedTechnicians.length} Technician{unassignedTechnicians.length !== 1 ? 's' : ''} Unassigned
+                                    </span>
+                                </div>
+
+                                {loading ? (
+                                    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-8 text-center text-gray-400 text-sm">Loading...</div>
+                                ) : unassignedTechnicians.length === 0 ? (
+                                    <div className="bg-white rounded-lg border border-green-200 shadow-sm p-10 flex flex-col items-center gap-3">
+                                        <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+                                            <svg className="w-7 h-7 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                                        </div>
+                                        <p className="text-base font-bold text-green-700">All Technicians Are Assigned!</p>
+                                        <p className="text-sm text-gray-400">Every lab technician currently has at least one patient assigned.</p>
+                                    </div>
+                                ) : (
+                                    <div className="bg-white rounded-lg border border-orange-100 shadow-sm overflow-hidden">
+                                        {/* Summary Banner */}
+                                        <div className="bg-orange-50 border-b border-orange-100 px-6 py-3 flex items-center gap-2">
+                                            <svg className="w-4 h-4 text-orange-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                                            <p className="text-xs font-semibold text-orange-700">
+                                                The following lab technicians have <span className="underline">no patients assigned</span>. Please assign them from the Technician Assignment tab.
+                                            </p>
+                                        </div>
+
+                                        {/* Table */}
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left">
+                                                <thead className="bg-gray-50 border-b border-gray-100">
+                                                    <tr>
+                                                        <th className="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
+                                                        <th className="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Technician Name</th>
+                                                        <th className="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Department</th>
+                                                        <th className="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                                                        <th className="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Availability</th>
+                                                        <th className="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Patients Assigned</th>
+                                                        <th className="py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {unassignedTechnicians.map((tech, index) => (
+                                                        <tr key={tech._id} className="hover:bg-orange-50/40 transition-colors">
+                                                            <td className="py-3.5 px-5 text-sm text-gray-400 font-medium">{index + 1}</td>
+                                                            <td className="py-3.5 px-5">
+                                                                <div className="flex items-center gap-2.5">
+                                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                                                                        <span className="text-indigo-600 font-bold text-xs">{tech.name?.charAt(0).toUpperCase()}</span>
+                                                                    </div>
+                                                                    <span className="text-sm font-semibold text-slate-700">{tech.name}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-3.5 px-5 text-sm text-gray-600">{tech.department || '—'}</td>
+                                                            <td className="py-3.5 px-5 text-sm text-gray-500">{tech.email || '—'}</td>
+                                                            <td className="py-3.5 px-5">
+                                                                {tech.isAvailable !== false ? (
+                                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 uppercase tracking-wider">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>Available
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200 uppercase tracking-wider">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>Unavailable
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3.5 px-5">
+                                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-orange-100 text-orange-700 border border-orange-200">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                                                    0 Patients
+                                                                </span>
+                                                            </td>
+                                                            <td className="py-3.5 px-5">
+                                                                <button
+                                                                    onClick={() => setCurrentView('assignment')}
+                                                                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-md transition-colors"
+                                                                >
+                                                                    + Assign Now
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Footer Count */}
+                                        <div className="bg-gray-50 border-t border-gray-100 px-5 py-3 text-right">
+                                            <span className="text-xs text-gray-400 font-medium">Total: {unassignedTechnicians.length} unassigned technician{unassignedTechnicians.length !== 1 ? 's' : ''} out of {allTechnicians.length} total</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
             </main>
         </div>

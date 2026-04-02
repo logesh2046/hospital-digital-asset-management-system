@@ -34,6 +34,7 @@ export const AuthProvider = ({ children }) => {
 
             if (response.ok) {
                 const userData = {
+                    _id: data._id,
                     id: data._id,
                     name: data.name,
                     email: data.email,

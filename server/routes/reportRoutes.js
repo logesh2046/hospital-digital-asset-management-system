@@ -7,8 +7,8 @@ const router = express.Router();
 
 router.post('/upload', protect, authorize('admin', 'doctor', 'technician'), upload.single('file'), uploadReport);
 router.get('/', protect, getAllReports);
-router.get('/:patientId', protect, getReports);
 router.get('/view/:id', viewProtectedReport);
+router.get('/:patientId', protect, getReports);
 router.put('/:id/status', protect, authorize('admin', 'doctor'), updateReportStatus);
 
 export default router;
